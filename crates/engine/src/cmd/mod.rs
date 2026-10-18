@@ -8,6 +8,8 @@ mod audit;
 pub(crate) mod blocks;
 pub mod clipboard;
 pub mod constraints;
+#[cfg(feature = "contractor")]
+pub mod contractor;
 mod draw;
 mod draw2;
 mod draworder;
@@ -168,6 +170,8 @@ pub fn command_specs() -> &'static [CommandSpec] {
     static SPECS: std::sync::OnceLock<Vec<CommandSpec>> = std::sync::OnceLock::new();
     SPECS.get_or_init(|| {
         let mut v = Vec::new();
+        #[cfg(feature = "contractor")]
+        v.extend(contractor::specs());
         v.extend(file::specs());
         v.extend(file::alias_specs());
         v.extend(audit::specs());

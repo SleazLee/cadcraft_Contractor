@@ -1,0 +1,17 @@
+[package]
+name = "cadcraft-contractor"
+description = "CADCraft Contractor: portable framing members, lumber catalog, and 3D geometry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+cadcraft-doc = { workspace = true }
+cadcraft-geom = { workspace = true }
+cadcraft-color = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

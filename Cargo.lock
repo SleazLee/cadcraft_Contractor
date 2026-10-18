@@ -596,6 +596,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cadcraft-contractor"
+version = "0.7.0"
+dependencies = [
+ "cadcraft-color",
+ "cadcraft-doc",
+ "cadcraft-geom",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "cadcraft-doc"
 version = "0.7.0"
 dependencies = [
@@ -628,6 +640,7 @@ version = "0.7.0"
 dependencies = [
  "cadcraft-color",
  "cadcraft-constraints",
+ "cadcraft-contractor",
  "cadcraft-doc",
  "cadcraft-dxf",
  "cadcraft-fonts",
@@ -707,6 +720,7 @@ name = "cadcraft-ui-egui"
 version = "0.7.0"
 dependencies = [
  "cadcraft-color",
+ "cadcraft-contractor",
  "cadcraft-doc",
  "cadcraft-engine",
  "cadcraft-fonts",

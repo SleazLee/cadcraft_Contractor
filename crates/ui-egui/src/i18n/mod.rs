@@ -236,7 +236,20 @@ fn parse(source: &str) -> (Catalog<'_>, Vec<String>) {
 }
 
 fn catalog(language: &str) -> Option<&'static Catalog<'static>> {
-    LANGUAGES.iter().find(|l| l.code == language && !l.source.is_empty()).map(|l| l.catalog.get_or_init(|| parse(l.source).0))
+    LANGUAGES.iter().find(|l| l.code == language && !l.source.is_empty()).map(|l| {
+        l.catalog.get_or_init(|| {
+            let entries = parse(l.source).0;
+            #[cfg(feature = "contractor")]
+            let entries = {
+                let mut entries = entries;
+                for &(key, value) in crate::contractor::i18n::entries(l.code) {
+                    entries.entry(("", key)).or_insert(value);
+                }
+                entries
+            };
+            entries
+        })
+    })
 }
 
 pub fn tr<'a>(language: &str, source: &'a str) -> &'a str {

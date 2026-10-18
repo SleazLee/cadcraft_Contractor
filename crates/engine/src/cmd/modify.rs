@@ -100,6 +100,8 @@ pub fn specs() -> Vec<CommandSpec> {
 // ---------------- core operations ----------------
 
 pub(crate) fn transform_entities(s: &mut Session, hs: &[Handle], m: &Mat3, copy: bool) -> Result<Vec<Handle>> {
+    #[cfg(feature = "contractor")]
+    super::contractor::guard_transform(s, hs, m)?;
     let d = s.doc_mut()?;
     let mut out = Vec::new();
     for h in hs {
@@ -1245,6 +1247,10 @@ fn run_chamfer(s: &mut Session, p: &Value) -> Result<Value> {
 // ---------------- explode / array / order / break / join ----------------
 
 pub(crate) fn explode_kind(d: &cadcraft_doc::Drawing, e: &Entity) -> Option<Vec<Entity>> {
+    #[cfg(feature = "contractor")]
+    if let Ok(parts) = super::contractor::model::explode(d, e.handle) {
+        return Some(parts);
+    }
     // An annotative object explodes into plain objects as it draws at the current annotation scale.
     if cadcraft_doc::is_annotative(e) {
         let mut se = match d.anno_draw(e) {

@@ -45,6 +45,10 @@ People trust CADCraft with their drawings; a crash loses their work. **This outr
 - Shell gotcha: `mv`/`cp` may be aliased interactive — use `/bin/mv -f` / `/bin/cp -f`.
 - Parallel agents: separate `CARGO_TARGET_DIR` per agent; edit only the crates you own; delete your target dir when done (disk).
 
+## Contractor fork
+
+The optional Contractor floor-framing extension is documented in `docs/contractor.md`. Read the nested agent notes before changing its model, engine adapters, or UI adapter. Keep extension behavior out of doc/render/io and keep the shared hooks small. Its specialized member viewer does not constitute a general-purpose 3D CAD kernel or improve unrelated native parity numbers.
+
 ## Roadmap
 `ROADMAP.md` (committed) is the one-page summary: stage, parity numbers, estimates. It follows craftrules' `standards/progress-docs.md`: the assessment is `docs/target-app-parity.md`, the work list `docs/gaps.md` (pick work from its top rows), milestones `docs/roadmap.md`, deep checklists `docs/geometry-parity.md`, `docs/ui-parity.md`, `docs/file-format-parity.md`, `docs/hardware-parity.md`, `docs/localization-parity.md`. When work lands, update the affected rows and the docs' status lines and revision history. `cargo xtask parity` regenerates the menu-breadth checklist in `docs/parity-checklist.md`.
 

@@ -10,6 +10,7 @@ rust-version = "1.95"
 workspace = true
 
 [dependencies]
+cadcraft-contractor = { workspace = true, optional = true }
 craft-ui = { workspace = true }
 cadcraft-geom = { workspace = true }
 cadcraft-color = { workspace = true }
@@ -24,6 +25,10 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
 image = { workspace = true }
+
+[features]
+default = ["contractor"]
+contractor = ["dep:cadcraft-contractor", "cadcraft-engine/contractor"]
 
 [dev-dependencies]
 egui_kittest = { workspace = true, features = ["wgpu", "snapshot"] }

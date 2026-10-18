@@ -17,6 +17,8 @@ pub mod clipboard;
 pub mod closing;
 pub mod cmdline;
 pub mod context_menu;
+#[cfg(feature = "contractor")]
+pub mod contractor;
 pub mod control;
 pub mod credits;
 pub mod dialogs;
@@ -191,6 +193,8 @@ pub struct Services {
 }
 
 pub struct CadApp {
+    #[cfg(feature = "contractor")]
+    pub contractor: contractor::State,
     pub system_languages: Vec<String>,
     /// Whether the operating system shows animations, as the host reads it; `None` when the OS
     /// states nothing or the host cannot ask ([`animation`]).
@@ -248,6 +252,8 @@ pub struct CadApp {
 impl CadApp {
     pub fn new(session: Session, services: Services) -> Self {
         CadApp {
+            #[cfg(feature = "contractor")]
+            contractor: contractor::State::default(),
             system_languages: Vec::new(),
             system_animations: None,
             session,
@@ -297,6 +303,10 @@ impl CadApp {
     /// `NativeOptions::stencil_buffer`); clipped viewports are clipped with it.
     pub fn set_wgpu(&mut self, rs: &egui_wgpu::RenderState, stencil: Option<egui_wgpu::wgpu::TextureFormat>) {
         self.canvas.gpu = Some(gpu::install(rs, &self.gpu_faults, stencil));
+        #[cfg(feature = "contractor")]
+        {
+            self.contractor.gpu = Some(contractor::gpu::Renderer::new(rs));
+        }
         self.canvas.gpu_device = Some(rs.device.clone());
     }
 

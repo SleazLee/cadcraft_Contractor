@@ -109,6 +109,10 @@ fn run_refedit(s: &mut Session, p: &Value) -> Result<Value> {
         Some(cadcraft_doc::EntityKind::Insert(i)) => (i.clone(), d.space_of(ih).ok_or_else(|| bad("refedit", "the reference is in no space"))?),
         _ => return Err(bad("refedit", "select a block reference")),
     };
+    #[cfg(feature = "contractor")]
+    if crate::cmd::contractor::protected_block(d, &ins.block) {
+        return Err(bad("refedit", "Generated framing blocks are edited through Contractor properties."));
+    }
     let blk = d.block(&ins.block).cloned().ok_or_else(|| bad("refedit", format!("block \"{}\" not found", ins.block)))?;
     if blk.xref_path.is_some() {
         return Err(bad(

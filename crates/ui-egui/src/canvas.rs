@@ -334,7 +334,13 @@ fn ensure_list(app: &mut CadApp, xf: &Xf, views: &[(Bounds2, f64)], ctx: &egui::
         }
     }
     let space = st.space.clone();
-    app.canvas.list = Some(cadcraft_render::build(&st.doc, &space, &opts));
+    #[cfg(feature = "contractor")]
+    let presentation = crate::contractor::presentation(&st.doc);
+    #[cfg(feature = "contractor")]
+    let drawing = presentation.as_ref();
+    #[cfg(not(feature = "contractor"))]
+    let drawing = &st.doc;
+    app.canvas.list = Some(cadcraft_render::build(drawing, &space, &opts));
     app.canvas.key = key;
     app.canvas.window = opts.view;
     app.canvas.list_gen = app.canvas.list_gen.wrapping_add(1);
@@ -1224,6 +1230,13 @@ fn wheel_zoom_points(events: &[egui::Event], opts: &egui::InputOptions, page: f3
 }
 
 pub fn show(app: &mut CadApp, ui: &mut egui::Ui) {
+    #[cfg(feature = "contractor")]
+    if app.session.doc().is_ok_and(|d| cadcraft_contractor::representation(d) == cadcraft_contractor::Representation::Model3d)
+        && app.session.layout_space() == cadcraft_doc::Space::Model
+    {
+        crate::contractor::canvas(app, ui);
+        return;
+    }
     let t = Tokens::get();
     let full = ui.available_rect_before_wrap();
     // Tiled model viewports (VPORTS): the current tile is the drawing area below; `draw_tiles`

@@ -9,6 +9,8 @@
 
 <h1 align="center">CADCraft</h1>
 
+> **Contractor fork:** Choose the **Contractor** Tool Sets tab to model individual lumber members, posts and pilings, inspect their elevations in 3D, and export Plan or Engineering blueprints. See the [floor-framing guide and maintenance notes](docs/contractor.md). The optional `contractor` feature is enabled by default in this fork.
+
 <p align="center">
   <b>Computer-aided design and drafting; an open-source, clean-room reimplementation of Autodesk AutoCAD, rebuilt in pure Rust.</b>
 </p>

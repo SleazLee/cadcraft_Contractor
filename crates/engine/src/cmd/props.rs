@@ -177,6 +177,8 @@ fn set_xy(p: &mut Vec3, v: &Value) {
 
 fn run_set(s: &mut Session, p: &Value) -> Result<Value> {
     let hs = targets(s, p)?;
+    #[cfg(feature = "contractor")]
+    super::contractor::guard_properties(s, &hs, p)?;
     if hs.is_empty() {
         return Err(bad("properties.set", "nothing selected"));
     }

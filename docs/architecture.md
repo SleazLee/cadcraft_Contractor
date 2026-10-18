@@ -1,6 +1,6 @@
 # CADCraft architecture
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-10 · **Change:** major (first committed architecture doc, written from the code on main at bd2412f) · **Target:** Autodesk AutoCAD 2027
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (isolated Contractor extension) · **Target:** Autodesk AutoCAD 2027
 
 How CADCraft is built today. This describes the code on `main`, not plans; plans live in
 [roadmap.md](roadmap.md). Agents: the rules that keep this shape (layering, never-crash,
@@ -69,6 +69,10 @@ read through the same path; saving DWG writes our DXF and converts it back. CADC
 (constraints, associativity details, table flags) travels in xdata under our own application
 name. Detail and gaps: [file-format-parity.md](file-format-parity.md).
 
+## Contractor extension (this fork)
+
+The optional L2 `contractor` crate stores framing members as standard block references with versioned entity xdata and generated plan, axis, and 3D-face representations. Isolated engine and egui adapters add a Contractor Tool Sets tab, commands, and a specialized depth-tested member viewer. It does not replace the native 2D renderer or add a general CAD solid kernel. See [contractor.md](contractor.md) for interfaces, feature flags, interchange tests, and every shared integration point.
+
 ## Agent control
 
 - **Control channel:** `cadcraft --control PORT` accepts JSON lines (`cmdline.input`,
@@ -91,4 +95,5 @@ allocations are capped (DXF tag counts, DWG size limits, hatch segment and islan
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-17 | minor | Isolated Contractor floor-framing model, commands and specialized viewer in this fork |
 | 2026-10-10 | major | First committed architecture doc, measured from the code (crate sizes, entity kinds, command counts) |

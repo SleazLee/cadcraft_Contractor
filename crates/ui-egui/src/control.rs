@@ -470,11 +470,32 @@ pub fn handle(app: &mut CadApp, ctx: &egui::Context, req: &ControlRequest) -> Ou
         "ui.render" => {
             let w = f("width").unwrap_or(1600.0).clamp(16.0, 8192.0) as u32;
             let h = f("height").unwrap_or(1000.0).clamp(16.0, 8192.0) as u32;
+            #[cfg(feature = "contractor")]
+            if app.session.doc().is_ok_and(|d| cadcraft_contractor::representation(d) == cadcraft_contractor::Representation::Model3d)
+                && app.session.layout_space() == cadcraft_doc::Space::Model
+            {
+                let png = match crate::contractor::render_png(app, p, w, h) {
+                    Ok(png) => png,
+                    Err(e) => return err(e),
+                };
+                #[cfg(not(target_arch = "wasm32"))]
+                if let Some(path) = s("path") {
+                    if let Err(e) = std::fs::write(path, &png) {
+                        return err(e);
+                    }
+                    return ok(render_reply(&png, w, h, Some(path)));
+                }
+                return ok(render_reply(&png, w, h, None));
+            }
             let Ok(st) = app.session.state() else { return err("no drawing") };
             // `window`: just that area, at the size given or matching its shape.
             let window = render_window(p);
             let opts = cadcraft_render::Options { view: window, transparency: app.session.settings.transparency_display, ..Default::default() };
-            let list = cadcraft_render::build(&st.doc, &st.space, &opts);
+            #[cfg(feature = "contractor")]
+            let presented = crate::contractor::presentation(&st.doc);
+            #[cfg(not(feature = "contractor"))]
+            let presented = &st.doc;
+            let list = cadcraft_render::build(&presented, &st.space, &opts);
             let v = st.view();
             let fit = p.get("fit").and_then(Value::as_bool).unwrap_or(true);
             let view = match &window {

@@ -1,0 +1,9 @@
+# Contractor command adapters
+
+Read root AGENTS.md and crates/contractor/AGENTS.md. Keep CAD behavior here and geometry/persistence in cadcraft-contractor. Every change is a CommandSpec, available through the same registry to menus, scripts, CLI, MCP and control. JSON execution never prompts. Interactive factories only collect inputs and call the same command implementation.
+
+Validate complete batches against a cloned Drawing and assign it only after success. Conversion preserves source objects unless replace is explicit; never classify by color or change unselected reference/HVAC geometry. Place-on-top samples one support elevation; no persistent dependency is created. Repetition count includes the source member.
+
+The tool preferences are per-document session state, not model geometry. Namespaced layer flags select the saved representation. Interactive placement enters Plan, including when invoked through menus or the command line. Repeat must start without a pickfirst selection and offer an object-selection prompt. Export clones the model, creates current elevation labels, and uses host IO/plot/delivery hooks. DWG preservation is a release gate; do not introduce a UI or file-format dependency here.
+
+Shared hooks are command registration, DocState tool defaults, transform protection, BEDIT/REFEDIT protection, world-coordinate explosion and atomic file delivery. The ordinary upstream INSERT explosion is planar; use the model's explosion for recognized Contractor members so elevations and Z scale survive. Document additions in docs/contractor.md. Test both interactive and JSON commands, partial failure, locks, undo/redo, transform safety, and exact-scale plotting.

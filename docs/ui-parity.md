@@ -1,6 +1,6 @@
 # UI parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** minor (animation effects follow the operating system's setting) · **Target:** Autodesk AutoCAD 2027 for Mac (26.0)
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (optional Contractor tool tab and member navigation in this fork) · **Target:** Autodesk AutoCAD 2027 for Mac (26.0)
 
 How CADCraft's interaction compares with AutoCAD's: point entry, object snaps, tracking, dynamic
 input, grips, selection, the command line, chrome and navigation. A drafter's speed in AutoCAD
@@ -164,7 +164,7 @@ down-arrow options menu (DYNPROMPT), and DYNDIM.
 | Status bar toggles | ~25 | most toggles; Annotation Visibility and Workspace do nothing |
 | ViewCube | interactive 3D | clickable for 2D (Top/Home → extents); dragging does nothing (#7) |
 | Navigation bar, SteeringWheels | yes | no |
-| Workspaces | Drafting & Annotation, 3D Modeling | no |
+| Workspaces | Drafting & Annotation, 3D Modeling | optional Contractor tool tab with Plan/Engineering/3D member views; general workspace switching remains absent |
 | Options / Preferences dialog | many tabs | **no** (issue #23) |
 | Customisation (CUI, aliases editor, tool palettes) | yes | no |
 | Themes | Dark, Light | Dark, Light, System (#179) |
@@ -181,7 +181,7 @@ down-arrow options menu (DYNPROMPT), and DYNDIM.
 | Trackpad two-finger pan, pinch zoom (macOS) | yes | yes (#58) |
 | Named views (VIEW) | yes | **no** (VIEW table not read or written) |
 | Tiled model-space viewports (VPORTS) | yes | not confirmed: VPORTS maps to paper-space MVIEW |
-| 3D orbit, ViewCube drag, SteeringWheels | yes | no (M11) |
+| 3D orbit, ViewCube drag, SteeringWheels | yes | Contractor member orbit only; general CAD orbit, ViewCube drag and SteeringWheels remain absent (M11) |
 
 ## Keyboard and context menus (≈ 25%)
 
@@ -202,6 +202,7 @@ down-arrow options menu (DYNPROMPT), and DYNDIM.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-17 | minor | Optional Contractor workspace and specialized member orbit, without claiming general CAD 3D parity |
 | 2026-10-12 | minor | Selected and hovered objects redrawn in the selection colour (text and arrowheads included); Options ▸ Selection laid out as AutoCAD's: Object grouping, Show grips, grip object limit, selection preview, Visual Effect Settings (selection area, preview filter) |
 | 2026-10-12 | minor | Animation effects (dialog and menu fades, smoothed wheel scrolling and ⌘/Ctrl+wheel zoom) follow the operating system's setting; View ▸ Accessibility ▸ Animation Effects chooses System, On or Off |
 | 2026-10-12 | minor | Hatch and Gradient / Hatch Edit dialogs (HATCH, GRADIENT, HATCHEDIT, double-click a hatch; HPDLGMODE) |

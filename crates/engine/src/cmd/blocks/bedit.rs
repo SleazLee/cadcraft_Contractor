@@ -108,6 +108,13 @@ fn dynamic_definition(d: &Drawing, name: &str) -> Option<String> {
 
 /// Open the Block Editor on block `name` and frame its objects.
 fn open(s: &mut Session, name: &str, create: bool) -> Result<Value> {
+    #[cfg(feature = "contractor")]
+    if crate::cmd::contractor::protected_block(s.doc()?, name) {
+        return Err(bad(
+            "bedit",
+            "Generated framing blocks are edited through Contractor properties; explode the member to edit ordinary CAD geometry.",
+        ));
+    }
     let new = create && !name.eq_ignore_ascii_case(crate::blockedit::CURRENT_DRAWING) && s.doc()?.block(name).is_none();
     s.state_mut()?.open_block_editor(name, create)?;
     let name = s.state()?.block_editor().unwrap_or(name).to_string();

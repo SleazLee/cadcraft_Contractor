@@ -9,6 +9,10 @@ publish = false
 [lints]
 workspace = true
 
+[features]
+default = ["contractor"]
+contractor = ["cadcraft-engine/contractor", "cadcraft-mcp/contractor"]
+
 [dependencies]
 cadcraft-engine = { workspace = true }
 cadcraft-io = { workspace = true }

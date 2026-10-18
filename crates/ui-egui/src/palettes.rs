@@ -132,8 +132,12 @@ pub fn toolsets(app: &mut CadApp, ui: &mut egui::Ui) {
         // Tabs.
         let tab_h = 28.0;
         let mut x = r.left();
-        for name in ["Drafting", "Modeling"] {
-            let w = 92.0;
+        #[cfg(not(feature = "contractor"))]
+        let tabs = ["Drafting", "Modeling"];
+        #[cfg(feature = "contractor")]
+        let tabs = ["Drafting", "Modeling", "Contractor"];
+        for name in tabs {
+            let w = if tabs.len() == 3 { 68.0 } else { 92.0 };
             let tr = Rect::from_min_size(pos2(x, r.top()), vec2(w, tab_h));
             let active = app.ui.toolset_tab == name;
             let resp = ui.interact(tr, ui.id().with(("ts", name)), Sense::click());
@@ -160,6 +164,11 @@ pub fn toolsets(app: &mut CadApp, ui: &mut egui::Ui) {
             app.ui.show_toolsets = false;
         }
         let body = Rect::from_min_max(pos2(r.left(), r.top() + tab_h), r.max);
+        #[cfg(feature = "contractor")]
+        if app.ui.toolset_tab == "Contractor" {
+            ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| crate::contractor::panel(app, ui));
+            return;
+        }
         let mut clicked: Option<&'static str> = None;
         let mut toggle_group = None;
         let mut tool_visible: Option<(String, bool)> = None;

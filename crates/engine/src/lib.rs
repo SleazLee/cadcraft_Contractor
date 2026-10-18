@@ -118,6 +118,8 @@ pub struct Snapshot {
 /// One open drawing.
 #[derive(Clone, Debug)]
 pub struct DocState {
+    #[cfg(feature = "contractor")]
+    pub contractor_tool: Value,
     pub doc: Arc<Drawing>,
     pub undo: Vec<Snapshot>,
     pub redo: Vec<Snapshot>,
@@ -150,6 +152,8 @@ impl DocState {
     pub fn new(doc: Drawing, title: &str, path: Option<String>) -> Self {
         let doc = Arc::new(doc);
         DocState {
+            #[cfg(feature = "contractor")]
+            contractor_tool: serde_json::json!({}),
             saved: doc.clone(),
             doc,
             undo: Vec::new(),

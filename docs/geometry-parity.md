@@ -1,6 +1,6 @@
 # Geometry parity
 
-> **Last reviewed:** 2026-10-10 · **Last updated:** 2026-10-12 · **Change:** minor (property-based and hostile-input test suite for geometry landed) · **Target:** Autodesk AutoCAD 2027
+> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (specialized framing geometry distinguished from native kernel parity) · **Target:** Autodesk AutoCAD 2027
 
 CAD users trust numbers: a trimmed endpoint, an offset, an intersection or an area is either right
 to the last displayed digit or the tool is unusable for production drawings. This document
@@ -12,7 +12,7 @@ in [ui-parity.md](ui-parity.md); dimension and hatch behaviour in [gaps.md](gaps
 from lines, arcs and circles is exact. Ellipses and splines are handled by tessellating them, so
 intersections, offsets, trims and snaps on them are approximations; polyline offsets don't
 recompute arc bulges or clean up loops; tolerances are absolute, so very large or very small
-drawings behave differently from mid-sized ones. 3D geometry doesn't exist. Remaining:
+drawings behave differently from mid-sized ones. A general CAD 3D kernel does not exist; this fork's optional [Contractor](contractor.md) module generates rectangular/round framing geometry and its own viewer. Remaining:
 **≈ 90–140 Opus 5.5 hours** for 2D precision and the solver, plus the 3D kernel (M11, see
 [target-app-parity.md](target-app-parity.md)).
 
@@ -155,6 +155,7 @@ Total ≈ 90–140 h; items 1–6 parallelise across two or three agents.
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-17 | minor | Distinguish Contractor's generated framing geometry from the general 3D kernel gap |
 | 2026-10-12 | trivial | TRIM on a closed polyline keeps only the complementary run when the pick lies past the last cut (#726) |
 | 2026-10-12 | minor | Property-based and hostile-input tests for geometry numerics landed (`crates/geom/src/property_tests.rs`): intersections, closest points, three-point arcs, bounds, vector identities; hostile f64s never panic; known answers at 1e6–1e7 |
 | 2026-10-10 | major | First geometry-precision audit: tolerances, curves, intersections, offsets, modify commands, measurement, hatch, solver |

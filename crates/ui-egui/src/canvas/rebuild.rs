@@ -102,7 +102,11 @@ impl Job {
 /// thrown away, and no vertex data is made for it).
 fn run(req: Request) -> Option<Built> {
     let t0 = crate::now_ms();
-    let list = cadcraft_render::build(&req.doc, &req.space, &req.opts);
+    #[cfg(feature = "contractor")]
+    let presented = crate::contractor::presentation(&req.doc);
+    #[cfg(not(feature = "contractor"))]
+    let presented = &req.doc;
+    let list = cadcraft_render::build(&presented, &req.space, &req.opts);
     if req.opts.cancelled() {
         return None;
     }
