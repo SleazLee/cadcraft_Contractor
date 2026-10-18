@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha, ~2 points (38% → 40% ready for real work) and ~125–190 Opus 5.5 hours away (the four failing core workflows of the [alpha gate](docs/roadmap.md#alpha-gate))
 
-> **Last reviewed:** 2026-10-17 · **Last updated:** 2026-10-17 · **Change:** minor (separately tracked Contractor extension in this fork) · **Target:** Autodesk AutoCAD 2027
+> **Last reviewed:** 2026-10-18 · **Last updated:** 2026-10-18 · **Change:** minor (separately tracked Contractor extension in this fork) · **Target:** Autodesk AutoCAD 2027
 
 CADCraft targets full parity with AutoCAD (2D drafting first, then annotation, layouts and
 plotting, DWG, parametrics and 3D), plus what AutoCAD doesn't have: agent control over MCP, a
@@ -17,7 +17,7 @@ is ≈ 600–930 h away.
 
 ## Headline numbers
 
-**Contractor fork:** an optional floor-framing workspace adds dimensional lumber, supports, plan/engineering/3D representations and blueprint exchange. Implementation and validation status are tracked separately in [docs/contractor.md](docs/contractor.md); the upstream parity figures below do not assess this specialized extension.
+**Contractor fork:** an optional floor-framing workspace adds dimensional lumber, supports, plan/engineering/3D representations and blueprint exchange. Item-specific Properties, square end setbacks and collision checks extend that workflow. Implementation and validation status are tracked separately in [docs/contractor.md](docs/contractor.md); the upstream parity figures below do not assess this specialized extension.
 
 | Number | Value | Kind |
 |---|---|---|

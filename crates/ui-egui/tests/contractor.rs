@@ -47,6 +47,26 @@ fn framing_workspace_and_headless_views_render_without_a_window() {
             harness.run_steps(3);
             harness.render().unwrap().save(folder.join(format!("workspace-{mode}.png"))).unwrap();
         }
+        harness.state_mut().run("ui.panel.properties", serde_json::Value::Null).unwrap();
+        harness.state_mut().run("ui.dock", json!({"operation":"resizeStack","panel":"layers","height":180})).unwrap();
+        let piles = cadcraft_contractor::members(harness.state().session.doc().unwrap())
+            .into_iter()
+            .filter(|m| matches!(m.record.shape, cadcraft_contractor::Shape::Pile { .. }))
+            .take(4)
+            .map(|m| m.handle.hex())
+            .collect::<Vec<_>>();
+        harness.state_mut().run("contractor.set", json!({"handle":piles[0],"depthBelowTop":"10'"})).unwrap();
+        harness.state_mut().run("select", json!({"handles":piles})).unwrap();
+        harness.run_steps(3);
+        harness.render().unwrap().save(folder.join("properties-pilings.png")).unwrap();
+        let lumber = cadcraft_contractor::members(harness.state().session.doc().unwrap())
+            .into_iter()
+            .find(|m| matches!(m.record.shape, cadcraft_contractor::Shape::Board { .. }))
+            .unwrap()
+            .handle;
+        harness.state_mut().run("select", json!({"handles":[lumber.hex()]})).unwrap();
+        harness.run_steps(3);
+        harness.render().unwrap().save(folder.join("properties-lumber.png")).unwrap();
     }
 }
 

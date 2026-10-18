@@ -23,6 +23,37 @@ fn number(p: &Value, key: &str, default: f64) -> Result<f64> {
         Some(v) => v.as_f64().filter(|v| v.is_finite()).ok_or_else(|| err(format!("{key} must be a finite number"))),
     }
 }
+/// Bare values use drawing units; explicit feet/inches and metric suffixes are physical lengths.
+pub fn parse_length(d: &Drawing, value: &str) -> Result<f64> {
+    if value.len() > 128 {
+        return Err(err("length input is too long"));
+    }
+    let value = value.trim().to_ascii_lowercase();
+    let mm = framing::unit_mm(d).map_err(err)?;
+    let (text, factor) = if value.contains(['\'', '"']) {
+        (value.as_str(), 25.4 / mm)
+    } else {
+        let suffix = [("mm", 1.0), ("cm", 10.0), ("in", 25.4), ("ft", 304.8), ("m", 1000.0)].into_iter().find(|(s, _)| value.ends_with(s));
+        match suffix {
+            Some((s, f)) => (value.strip_suffix(s).unwrap_or("").trim(), f / mm),
+            None => (value.as_str(), 1.0),
+        }
+    };
+    let n = crate::units::parse_distance(text).ok_or_else(|| err("enter a length such as 9.25\", 1.2', or 250 mm"))? * factor;
+    if !n.is_finite() || n.abs() > 1e9 {
+        return Err(err("length must be finite and within drawing limits"));
+    }
+    Ok(n)
+}
+fn dimensions(d: &Drawing, p: &Value) -> Result<Value> {
+    let mut p = p.clone();
+    for key in ["width", "depth", "height", "diameter", "length", "bottom", "top", "spacing", "startSetback", "endSetback", "gap", "depthBelowTop"] {
+        if let Some(v) = p.get(key).and_then(Value::as_str) {
+            p[key] = json!(parse_length(d, v)?);
+        }
+    }
+    Ok(p)
+}
 fn text<'a>(p: &'a Value, key: &str, default: &'a str) -> Result<&'a str> {
     match p.get(key) {
         None => Ok(default),
@@ -77,7 +108,10 @@ pub fn specs() -> Vec<CommandSpec> {
         CommandSpec::new("contractor.post","Place Post / Piling",post).menu(&["Tools","Contractor","Place Post / Piling"]).alias(&["ccpost"]).params("{at:[x,y], shape?:post|pile, width?, depth?, diameter?, bottom?:0, top? | height?:96, role?, label?}").enabled(model_space).interactive(|s| Ok(Box::new(PostM(s.state()?.contractor_tool.clone())))),
         CommandSpec::new("contractor.convert","Convert Selected Lines / Circles",convert).menu(&["Tools","Contractor","Convert Selected Lines / Circles"]).params("{handles?:[hex], size?, flat?, width?, depth?, bottom?, top?|height?, alignment?:center|left|right, replace?:false, role?}").enabled(model_space),
         CommandSpec::new("contractor.repeat","Repeat at On-center Spacing",repeat).menu(&["Tools","Contractor","Repeat at On-center Spacing"]).params("{handle:hex, count:2..10000 (includes original), spacing:number, direction?:[x,y] (default perpendicular)}").enabled(model_space).interactive(|_|Ok(Box::new(RepeatM {handle:None,count:None}))),
-        CommandSpec::new("contractor.set","Edit Framing Member",set).params("{handle:hex, size?, flat?, width?, depth?, length?, height?, diameter?, bottom?, onTopOf?, start?, end?, role?, label?}").enabled(model_space),
+        CommandSpec::new("contractor.set","Edit Framing Member",set).params("{handle?:hex | handles?:[hex], size?, flat?, shape?:post|pile, width?, depth?, length?, height?, diameter?, bottom?, top?, depthBelowTop?, onTopOf?, start?, end?, startSetback?, endSetback?, role?, label?} (lengths: numbers in drawing units or physical unit strings; atomic batch)").enabled(model_space),
+        CommandSpec::new("contractor.base","Choose Member Base",base).menu(&["Tools","Contractor","Choose Member Base"]).params("{handles?:[hex], reference:hex, side?:above|below} (empty selection sets placement defaults)").enabled(model_space).interactive(|_|Ok(Box::new(ReferenceM::new(false)))),
+        CommandSpec::new("contractor.join","Butt Lumber End",join).menu(&["Tools","Contractor","Butt Lumber End"]).params("{handle:hex, reference:hex, end?:auto|start|end, gap?:0}").enabled(model_space).interactive(|_|Ok(Box::new(ReferenceM::new(true)))),
+        CommandSpec::new("contractor.collisions","Check Framing Collisions",collisions).menu(&["Tools","Contractor","Check Framing Collisions"]).params("{} -> {overlaps:[{a,b}]} (positive physical volume only)").noundo(),
         CommandSpec::new("contractor.list","Framing Members",list).params("{} -> {members, issues}").noundo(),
         CommandSpec::new("contractor.view","Framing View",view).params("{mode?:plan|engineering|model3d} -> {mode}"),
         CommandSpec::new("contractor.view.plan","Plan View",|s,_|view(s,&json!({"mode":"plan"}))).menu(&["Tools","Contractor","Plan View"]),
@@ -89,20 +123,39 @@ pub fn specs() -> Vec<CommandSpec> {
 }
 
 fn tool(s: &mut Session, p: &Value) -> Result<Value> {
+    let p = &dimensions(s.doc()?, p)?;
     if !p.is_object() {
         return Err(err("tool settings must be an object"));
     }
-    let allowed = ["size", "width", "depth", "flat", "bottom", "onTopOf", "role", "label", "height", "top", "diameter", "shape", "alignment"];
+    let allowed = [
+        "kind",
+        "size",
+        "width",
+        "depth",
+        "flat",
+        "bottom",
+        "onTopOf",
+        "role",
+        "label",
+        "height",
+        "top",
+        "diameter",
+        "shape",
+        "alignment",
+        "depthBelowTop",
+    ];
     if p.as_object().is_some_and(|o| o.keys().any(|k| !allowed.contains(&k.as_str()))) {
         return Err(err("unknown framing tool setting"));
     }
-    let mut next = s.state()?.contractor_tool.clone();
+    let old = s.state()?.contractor_tool.clone();
+    let mut next = if p.get("kind").is_some() && p.get("kind") != old.get("kind") { json!({}) } else { old };
     let obj = next.as_object_mut().ok_or_else(|| err("invalid tool settings"))?;
     if p.get("bottom").is_some() || p.get("onTopOf") == Some(&Value::Null) {
         obj.remove("onTopOf");
     }
     if p.get("height").is_some() {
         obj.remove("top");
+        obj.remove("depthBelowTop");
     }
     for (key, v) in p.as_object().into_iter().flatten() {
         obj.insert(key.clone(), v.clone());
@@ -111,6 +164,9 @@ fn tool(s: &mut Session, p: &Value) -> Result<Value> {
         obj.remove("onTopOf");
     }
     board_record(s.doc()?, &next, 1.0)?;
+    if !["lumber", "post", "pile"].contains(&text(&next, "kind", "lumber")?) {
+        return Err(err("invalid placement type"));
+    }
     bottom(s.doc()?, &next)?;
     post_spec(s.doc()?, &next, Vec2::ZERO)?;
     s.state_mut()?.contractor_tool = next.clone();
@@ -118,6 +174,7 @@ fn tool(s: &mut Session, p: &Value) -> Result<Value> {
 }
 
 fn board(s: &mut Session, p: &Value) -> Result<Value> {
+    let p = &dimensions(s.doc()?, p)?;
     let (r, at, angle) = board_spec(s.doc()?, p)?;
     let common = s.current_common();
     let mut next = s.doc()?.clone();
@@ -127,7 +184,7 @@ fn board(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(json!({"handle":h.hex()}))
 }
 fn post_spec(d: &Drawing, p: &Value, at: Vec2) -> Result<(MemberRecord, Vec3)> {
-    let z = bottom(d, p)?;
+    let z = if p.get("depthBelowTop").is_some() { number(p, "top", 0.0)? - number(p, "depthBelowTop", 0.0)? } else { bottom(d, p)? };
     let height =
         if p.get("top").is_some() { number(p, "top", 0.0)? - z } else { number(p, "height", 96.0 * 25.4 / framing::unit_mm(d).map_err(err)?)? };
     let shape = match text(p, "shape", "post")? {
@@ -145,6 +202,7 @@ fn post_spec(d: &Drawing, p: &Value, at: Vec2) -> Result<(MemberRecord, Vec3)> {
     Ok((r, at.to3(z)))
 }
 fn post(s: &mut Session, p: &Value) -> Result<Value> {
+    let p = &dimensions(s.doc()?, p)?;
     let (r, at) = post_spec(s.doc()?, p, point_req("contractor.post", p, "at")?)?;
     let common = s.current_common();
     let mut next = s.doc()?.clone();
@@ -155,6 +213,7 @@ fn post(s: &mut Session, p: &Value) -> Result<Value> {
 }
 
 fn convert(s: &mut Session, p: &Value) -> Result<Value> {
+    let p = &dimensions(s.doc()?, p)?;
     if !p.is_object() {
         return Err(err("conversion parameters must be an object"));
     }
@@ -220,6 +279,7 @@ fn editable(s: &Session, h: Handle) -> Result<framing::Member> {
     framing::resolve(s.doc()?, h).map_err(err)
 }
 fn repeat(s: &mut Session, p: &Value) -> Result<Value> {
+    let p = &dimensions(s.doc()?, p)?;
     let h = single(s, p)?;
     let m = editable(s, h)?;
     let count = p
@@ -252,6 +312,8 @@ fn repeat(s: &mut Session, p: &Value) -> Result<Value> {
         let mut record = m.record.clone();
         // Normalize source scales into physical dimensions before creating independent copies.
         scale_shape(&mut record.shape, m.insert.scale);
+        record.setbacks.start *= m.insert.scale.x.abs();
+        record.setbacks.end *= m.insert.scale.x.abs();
         let angle =
             m.insert.rotation + if matches!(record.shape, Shape::Board { .. }) && m.insert.scale.x < 0.0 { std::f64::consts::PI } else { 0.0 };
         out.push(framing::add(&mut next, record, at, angle, e.common.clone()).map_err(err)?);
@@ -279,10 +341,24 @@ fn scale_shape(shape: &mut Shape, scale: Vec3) {
     }
 }
 fn set(s: &mut Session, p: &Value) -> Result<Value> {
-    let h = single(s, p)?;
-    let m = editable(s, h)?;
+    let p = &dimensions(s.doc()?, p)?;
+    let hs = targets(s, p)?;
+    if hs.is_empty() || hs.len() > framing::MAX_REPEAT {
+        return Err(err("select 1..10000 framing members"));
+    }
+    let mut next = s.doc()?.clone();
+    for h in hs {
+        let m = editable(s, h)?;
+        set_member(&mut next, h, m, p)?;
+    }
+    *s.doc_mut()? = next;
+    list(s, &json!({}))
+}
+fn set_member(d: &mut Drawing, h: Handle, m: framing::Member, p: &Value) -> Result<()> {
     let mut r = m.record.clone();
     scale_shape(&mut r.shape, m.insert.scale);
+    r.setbacks.start *= m.insert.scale.x.abs();
+    r.setbacks.end *= m.insert.scale.x.abs();
     let mut at = m.insert.insert;
     at.z = m.bottom();
     let mut angle = m.insert.rotation;
@@ -290,16 +366,32 @@ fn set(s: &mut Session, p: &Value) -> Result<Value> {
         angle += std::f64::consts::PI;
     }
     if p.get("bottom").is_some() || p.get("onTopOf").is_some() {
-        at.z = bottom(s.doc()?, p)?;
+        at.z = bottom(d, p)?;
     }
     r.role = text(p, "role", &r.role)?.into();
     r.label = text(p, "label", &r.label)?.into();
+    if p.get("shape").is_some() && !matches!(r.shape, Shape::Board { .. }) {
+        let height = r.shape.height();
+        let width = r.shape.width();
+        r.shape = match text(p, "shape", "")? {
+            "pile" => Shape::Pile { diameter: number(p, "diameter", width)?, height },
+            "post" => Shape::Post { width: number(p, "width", width)?, depth: number(p, "depth", width)?, height },
+            _ => return Err(err("support type must be post or pile")),
+        };
+    }
     match &mut r.shape {
         Shape::Board { length, width, depth } => {
             if p.get("size").is_some() || p.get("flat").is_some() {
                 let size = text(p, "size", &r.profile)?;
                 if size != "custom" {
-                    (*width, *depth) = framing::lumber(size, framing::unit_mm(s.doc()?).map_err(err)?, flag(p, "flat", false)?).map_err(err)?;
+                    let was_flat = *width > *depth;
+                    (*width, *depth) = framing::lumber(size, framing::unit_mm(d).map_err(err)?, flag(p, "flat", was_flat)?).map_err(err)?;
+                } else if p.get("flat").is_some()
+                    && p.get("width").is_none()
+                    && p.get("depth").is_none()
+                    && (*width > *depth) != flag(p, "flat", false)?
+                {
+                    std::mem::swap(width, depth);
                 }
                 r.profile = size.into();
             }
@@ -327,8 +419,26 @@ fn set(s: &mut Session, p: &Value) -> Result<Value> {
             *height = number(p, "height", *height)?;
         }
     }
-    framing::update(s.doc_mut()?, h, r, at, angle).map_err(err)?;
-    list(s, &json!({}))
+    if !matches!(r.shape, Shape::Board { .. }) {
+        let mut height = r.shape.height();
+        if p.get("top").is_some() {
+            height = number(p, "top", m.top())? - at.z;
+        }
+        if p.get("depthBelowTop").is_some() {
+            height = number(p, "depthBelowTop", height)?;
+            at.z = number(p, "top", m.top())? - height;
+        }
+        match &mut r.shape {
+            Shape::Post { height: h, .. } | Shape::Pile { height: h, .. } => *h = height,
+            _ => {}
+        }
+    }
+    if p.get("startSetback").is_some() || p.get("endSetback").is_some() {
+        r.version = 2;
+        r.setbacks.start = number(p, "startSetback", r.setbacks.start)?;
+        r.setbacks.end = number(p, "endSetback", r.setbacks.end)?;
+    }
+    framing::update(d, h, r, at, angle).map_err(err)
 }
 fn list(s: &mut Session, _p: &Value) -> Result<Value> {
     let d = s.doc()?;
@@ -342,10 +452,72 @@ fn list(s: &mut Session, _p: &Value) -> Result<Value> {
         .into_iter()
         .map(|m| {
             let (a, b) = m.axis();
-            json!({"handle":m.handle.hex(),"record":m.record,"bottom":m.bottom(),"top":m.top(),"start":m.insert.insert,"axis":[a,b]})
+            json!({"handle":m.handle.hex(),"record":m.record,"bottom":m.bottom(),"top":m.top(),"start":m.insert.insert,"axis":[a,b],"cutLength":m.record.cut_length().map(|l|l*m.insert.scale.x.abs())})
         })
         .collect::<Vec<_>>();
     Ok(json!({"members":members,"issues":issues,"unitMm":framing::unit_mm(d).ok()}))
+}
+
+fn reference(s: &Session, p: &Value) -> Result<framing::Member> {
+    let h = p.get("reference").and_then(Value::as_str).and_then(Handle::parse_hex).ok_or_else(|| err("reference member handle required"))?;
+    framing::resolve(s.doc()?, h).map_err(err)
+}
+fn base(s: &mut Session, p: &Value) -> Result<Value> {
+    let reference = reference(s, p)?;
+    let above = match text(p, "side", "above")? {
+        "above" => true,
+        "below" => false,
+        _ => return Err(err("side must be above or below")),
+    };
+    let hs = targets(s, p)?;
+    if hs.is_empty() {
+        let defaults = s.state()?.contractor_tool.clone();
+        let height = if defaults.get("kind").and_then(Value::as_str) == Some("lumber") || defaults.get("shape").is_none() {
+            board_record(s.doc()?, &defaults, 1.0)?.shape.height()
+        } else {
+            post_spec(s.doc()?, &defaults, Vec2::ZERO)?.0.shape.height()
+        };
+        let z = if above { reference.top() } else { reference.bottom() - height };
+        // tool.kind is an adapter preference; the command validates the physical settings.
+        let mut next = defaults;
+        next["bottom"] = json!(z);
+        if next.get("depthBelowTop").is_some() {
+            next["top"] = json!(z + height);
+        }
+        if let Some(o) = next.as_object_mut() {
+            o.remove("onTopOf");
+        }
+        s.state_mut()?.contractor_tool = next;
+        return Ok(json!({"bottom":z}));
+    }
+    if hs.len() > framing::MAX_REPEAT {
+        return Err(err("too many members"));
+    }
+    let mut next = s.doc()?.clone();
+    for h in &hs {
+        if *h == reference.handle {
+            return Err(err("a member cannot be its own base"));
+        }
+        let m = editable(s, *h)?;
+        let z = if above { reference.top() } else { reference.bottom() - (m.top() - m.bottom()) };
+        set_member(&mut next, *h, m, &json!({"bottom":z}))?;
+    }
+    *s.doc_mut()? = next;
+    s.set_selection(hs);
+    list(s, &json!({}))
+}
+fn join(s: &mut Session, p: &Value) -> Result<Value> {
+    let p = &dimensions(s.doc()?, p)?;
+    let h = single(s, p)?;
+    let m = editable(s, h)?;
+    let r = reference(s, p)?;
+    let edit = framing::joints::butt(&m, &r, text(p, "end", "auto")?, number(p, "gap", 0.0)?).map_err(err)?;
+    framing::update(s.doc_mut()?, h, edit.record, edit.at, edit.rotation).map_err(err)?;
+    list(s, &json!({}))
+}
+fn collisions(s: &mut Session, _p: &Value) -> Result<Value> {
+    let overlaps = framing::joints::collisions(s.doc()?).map_err(err)?.into_iter().map(|(a, b)| json!({"a":a.hex(),"b":b.hex()})).collect::<Vec<_>>();
+    Ok(json!({"message":format!("{} physical overlaps found.",overlaps.len()),"overlaps":overlaps}))
 }
 fn mode(p: &Value) -> Result<Representation> {
     match text(p, "mode", "plan")? {
@@ -607,6 +779,81 @@ impl Interactive for RepeatM {
             repeat(s, &json!({"handle":handle.hex(),"count":self.count,"spacing":spacing}))?;
             Ok(Step::Done)
         }
+    }
+}
+struct ReferenceM {
+    join: bool,
+    handles: Vec<Handle>,
+    reference: Option<Handle>,
+}
+impl ReferenceM {
+    fn new(join: bool) -> Self {
+        Self { join, handles: Vec::new(), reference: None }
+    }
+}
+impl Interactive for ReferenceM {
+    fn name(&self) -> &'static str {
+        if self.join { "contractor.join" } else { "contractor.base" }
+    }
+    fn begin(&mut self, s: &mut Session) -> Result<Step> {
+        let selected = s.selection();
+        if selected.len() <= framing::MAX_REPEAT && selected.iter().all(|h| editable(s, *h).is_ok()) {
+            self.handles = selected;
+        }
+        if self.join && self.handles.len() != 1 {
+            self.handles.clear();
+        }
+        Ok(Step::Continue)
+    }
+    fn prompt(&self, _s: &Session) -> Prompt {
+        if self.join && self.handles.is_empty() {
+            Prompt::new("Select lumber to join", Accept::SELECT)
+        } else if self.reference.is_none() {
+            Prompt::new("Choose reference member", Accept::SELECT)
+        } else if self.join {
+            Prompt::new("Board end", Accept::TEXT).kw(&["Auto", "Start", "End"]).default("Auto")
+        } else {
+            Prompt::new("Place relative to reference", Accept::TEXT).kw(&["Above", "Below"]).default("Above")
+        }
+    }
+    fn input(&mut self, s: &mut Session, i: Input) -> Result<Step> {
+        if matches!(i, Input::Cancel) {
+            return Ok(Step::Cancel);
+        }
+        if self.reference.is_none() {
+            if let Input::Pick(hs) = i
+                && hs.len() == 1
+                && let Some(h) = hs.first()
+            {
+                framing::resolve(s.doc()?, *h).map_err(err)?;
+                if self.join && self.handles.is_empty() {
+                    self.handles = hs;
+                } else {
+                    self.reference = Some(*h);
+                }
+            }
+            return Ok(Step::Continue);
+        }
+        let option = match i {
+            Input::Enter => {
+                if self.join {
+                    "auto".to_string()
+                } else {
+                    "above".to_string()
+                }
+            }
+            Input::Text(t) | Input::Keyword(t) => t.to_ascii_lowercase(),
+            _ => return Ok(Step::Continue),
+        };
+        let mut p = json!({"handles":self.handles.iter().map(|h|h.hex()).collect::<Vec<_>>(),"reference":self.reference.map(|h|h.hex())});
+        if self.join {
+            p["end"] = json!(option);
+            join(s, &p)?;
+        } else {
+            p["side"] = json!(option);
+            base(s, &p)?;
+        }
+        Ok(Step::Done)
     }
 }
 struct ExportM;

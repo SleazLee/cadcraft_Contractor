@@ -6,4 +6,6 @@ Use theme tokens for UI colors. Key property drafts and scene caches by drawing 
 
 Shared hooks are CadApp state/renderer setup, the third Tool Sets tab and the model-space canvas dispatcher. Keep them feature-gated and small. Check native/WASM and feature-disabled builds; inspect plan, engineering and 3D images, selection, property edits, resizing, and reference overlays. Keep future upstream merge guidance in docs/contractor.md.
 
+properties.rs owns item-specific drafts and the regular Properties body. Lumber, post and piling placement defaults are independent. For selected groups, display differing values as Varies and submit only dirty fields, never first-member defaults. Key drafts by drawing UID, revision and all selected handles. Keep physical unit parsing in the engine. Shared palette hooks only dispatch the specialized body and friendly type labels. 3D picks must feed active reference selection prompts as well as normal selection.
+
 Keep extension command/menu translations in i18n.rs. The host translator merges them conditionally and preserves upstream entries. Follow the host's required Ukrainian reference coverage and English fallback policy; never translate command IDs, profile IDs, or stored member data.

@@ -627,6 +627,8 @@ fn properties_header(app: &mut CadApp, ui: &mut egui::Ui) {
     for h in &sel {
         if let Some(e) = d.entity(*h) {
             let n = e.kind.type_name();
+            #[cfg(feature = "contractor")]
+            let n = crate::contractor::member_type(d, *h).unwrap_or(n);
             match types.iter_mut().find(|(t, _)| *t == n) {
                 Some((_, hs)) => hs.push(h.hex()),
                 None => types.push((n, vec![h.hex()])),
@@ -683,6 +685,10 @@ fn properties_header(app: &mut CadApp, ui: &mut egui::Ui) {
 pub(crate) fn properties_section(app: &mut CadApp, ui: &mut egui::Ui) {
     let t = Tokens::get();
     properties_header(app, ui);
+    #[cfg(feature = "contractor")]
+    if crate::contractor::properties(app, ui) {
+        return;
+    }
     let sel = app.session.selection();
     let Ok(d) = app.session.doc() else { return };
     ui.add_space(4.0);

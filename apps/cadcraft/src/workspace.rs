@@ -33,8 +33,8 @@ fn config_dir_from(platform: &str, get: impl Fn(&str) -> Option<OsString>) -> Op
 
 fn snapshot(ui: &UiState) -> Result<Value, String> {
     ui.docking.validate()?;
-    if !matches!(ui.toolset_tab.as_str(), "Drafting" | "Modeling") {
-        return Err("toolsetTab must be Drafting or Modeling".into());
+    if !matches!(ui.toolset_tab.as_str(), "Drafting" | "Modeling") && !(cfg!(feature = "contractor") && ui.toolset_tab == "Contractor") {
+        return Err("toolsetTab is not available in this build".into());
     }
     if ui.collapsed_groups.len() > 64 || ui.collapsed_groups.iter().any(|name| name.len() > 256) {
         return Err("collapsedGroups exceeds the workspace size limit".into());
@@ -92,6 +92,10 @@ fn read(path: &Path) -> Result<Option<UiState>, String> {
     // Old or hand-edited files cannot reopen a dialog or replace the active drawing view.
     ui.dialog = None;
     ui.start_tab = false;
+    #[cfg(not(feature = "contractor"))]
+    if ui.toolset_tab == "Contractor" {
+        ui.toolset_tab = "Drafting".into();
+    }
     snapshot(&ui).map_err(|error| format!("{}: {error}", path.display()))?;
     Ok(Some(ui))
 }
@@ -198,6 +202,35 @@ mod tests {
             Some(PathBuf::from("/config/cadcraft"))
         );
         assert_eq!(config_dir_from("macos", |_| None), None);
+    }
+
+    #[test]
+    #[cfg(feature = "contractor")]
+    fn contractor_tab_survives_workspace_save_and_reload() {
+        let directory = temp_dir();
+        let path = directory.join("workspace.json");
+        let (mut store, _, _) = Workspace::at(Some(path.clone()));
+        store.save_if_changed(&UiState { toolset_tab: "Contractor".into(), ..Default::default() }).unwrap();
+        let (_, restored, error) = Workspace::at(Some(path));
+        assert!(error.is_none());
+        assert_eq!(restored.unwrap().toolset_tab, "Contractor");
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    #[cfg(not(feature = "contractor"))]
+    fn disabled_contractor_tab_falls_back_without_losing_other_preferences() {
+        let directory = temp_dir();
+        let path = directory.join("workspace.json");
+        let bytes = br#"{"version":1,"workspace":{"toolsetTab":"Contractor","showToolbar":false}}"#;
+        fs::write(&path, bytes).unwrap();
+        let (_, restored, error) = Workspace::at(Some(path.clone()));
+        assert!(error.is_none());
+        let restored = restored.unwrap();
+        assert_eq!(restored.toolset_tab, "Drafting");
+        assert!(!restored.show_toolbar);
+        assert_eq!(fs::read(path).unwrap(), bytes);
+        fs::remove_dir_all(directory).unwrap();
     }
 
     #[test]

@@ -15,6 +15,94 @@ fn board(d: &mut Drawing) -> cadcraft_doc::Handle {
 }
 
 #[test]
+fn v2_square_setbacks_roundtrip_without_shortening_engineering_axes() {
+    let mut drawing = Drawing::default();
+    let reference = add(
+        &mut drawing,
+        MemberRecord::wood("2x10", "rim", Shape::Board { length: 144.0, width: 1.5, depth: 9.25 }),
+        Vec3::ZERO,
+        std::f64::consts::FRAC_PI_2,
+        Common::default(),
+    )
+    .unwrap();
+    let source = add(
+        &mut drawing,
+        MemberRecord::wood("2x10", "joist", Shape::Board { length: 120.0, width: 1.5, depth: 9.25 }),
+        Vec3::new(0.0, 48.0, 0.0),
+        0.0,
+        Common::default(),
+    )
+    .unwrap();
+    assert!(joints::intersects(&resolve(&drawing, source).unwrap(), &resolve(&drawing, reference).unwrap()));
+    let edit = joints::butt(&resolve(&drawing, source).unwrap(), &resolve(&drawing, reference).unwrap(), "start", 0.0).unwrap();
+    update(&mut drawing, source, edit.record, edit.at, edit.rotation).unwrap();
+    for extension in ["dxf", "dwg"] {
+        for rep in [Representation::Plan, Representation::Engineering, Representation::Model3d] {
+            let mut d = drawing.clone();
+            set_representation(&mut d, rep);
+            for _ in 0..2 {
+                let name = format!("joints.{extension}");
+                let bytes = cadcraft_io::write(&d, &name).unwrap();
+                d = cadcraft_io::read(&bytes, &name).unwrap();
+                let m = resolve(&d, source).unwrap();
+                assert_eq!(m.record.version, 2);
+                assert!((m.record.setbacks.start - 0.75).abs() < 1e-8);
+                assert!(m.axis().0.xy().dist(cadcraft_geom::Vec2::new(0.0, 48.0)) < 1e-8);
+                assert!((m.record.cut_length().unwrap() - 119.25).abs() < 1e-8);
+                assert!(!joints::intersects(&m, &resolve(&d, reference).unwrap()));
+                let min = m.faces().iter().flatten().map(|p| p.x).fold(f64::INFINITY, f64::min);
+                assert!((min - 0.75).abs() < 1e-8);
+                let mut r = m.record;
+                r.label = "Edited after reopen".into();
+                update(&mut d, source, r, m.insert.insert, m.insert.rotation).unwrap();
+            }
+        }
+    }
+}
+
+#[test]
+fn angled_square_cuts_round_supports_and_stacked_contacts_are_distinct() {
+    let mut d = Drawing::default();
+    let source = add(
+        &mut d,
+        MemberRecord::wood("custom", "board", Shape::Board { length: 120.0, width: 2.0, depth: 4.0 }),
+        Vec3::ZERO,
+        0.0,
+        Common::default(),
+    )
+    .unwrap();
+    let r = add(
+        &mut d,
+        MemberRecord::wood("custom", "board", Shape::Board { length: 100.0, width: 10.0, depth: 4.0 }),
+        Vec3::new(-30.0, -30.0, 0.0),
+        std::f64::consts::FRAC_PI_4,
+        Common::default(),
+    )
+    .unwrap();
+    let edit = joints::butt(&resolve(&d, source).unwrap(), &resolve(&d, r).unwrap(), "start", 0.0).unwrap();
+    assert!((edit.record.setbacks.start - (5.0 * 2.0_f64.sqrt() + 1.0)).abs() < 1e-8);
+    update(&mut d, source, edit.record, edit.at, edit.rotation).unwrap();
+    assert!(!joints::intersects(&resolve(&d, source).unwrap(), &resolve(&d, r).unwrap()));
+    let pile =
+        add(&mut d, MemberRecord::wood("custom", "piling", Shape::Pile { diameter: 10.0, height: 4.0 }), Vec3::ZERO, 0.0, Common::default()).unwrap();
+    let edit = joints::butt(&resolve(&d, source).unwrap(), &resolve(&d, pile).unwrap(), "start", 0.0).unwrap();
+    assert_eq!(edit.record.setbacks.start, 5.0);
+    update(&mut d, source, edit.record, edit.at, edit.rotation).unwrap();
+    assert!(!joints::intersects(&resolve(&d, source).unwrap(), &resolve(&d, pile).unwrap()));
+    let m = resolve(&d, source).unwrap();
+    update(&mut d, source, m.record, Vec3::new(0.0, 0.0, 4.0), 0.0).unwrap();
+    let edit = joints::butt(&resolve(&d, source).unwrap(), &resolve(&d, pile).unwrap(), "start", 0.0).unwrap();
+    assert_eq!(edit.record.setbacks.start, 0.0);
+    let mut invalid = edit.record.clone();
+    invalid.setbacks.start = 120.0;
+    assert!(invalid.validate().is_err());
+    invalid.setbacks.start = f64::NAN;
+    assert!(invalid.validate().is_err());
+    invalid.setbacks.start = -1.0;
+    assert!(invalid.validate().is_err());
+}
+
+#[test]
 fn catalog_units_and_stacking() {
     for (name, depth) in [("2x2", 1.5), ("2x4", 3.5), ("2x6", 5.5), ("2x8", 7.25), ("2x10", 9.25), ("2x12", 11.25)] {
         assert_eq!(lumber(name, 25.4, false).unwrap(), (1.5, depth));

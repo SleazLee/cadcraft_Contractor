@@ -15,6 +15,92 @@ fn board(s: &mut Session, p: Value) -> Handle {
 }
 
 #[test]
+fn selected_pilings_have_independent_depths_and_atomic_batch_properties() {
+    let mut s = session();
+    let mut hs = Vec::new();
+    for i in 0..12 {
+        let v = s
+            .execute(
+                "contractor.post",
+                &json!({"at":[i*16,0],"shape":"pile","top":"0\"","depthBelowTop":if i<4 {"10'"} else {"8'"},"diameter":"9.25\""}),
+            )
+            .unwrap();
+        hs.push(v["handle"].as_str().unwrap().to_string());
+    }
+    s.execute("contractor.set", &json!({"handles":hs.iter().take(4).collect::<Vec<_>>(),"depthBelowTop":"12'","label":"Deeper supports"})).unwrap();
+    for (i, h) in hs.iter().enumerate() {
+        let m = model::resolve(s.doc().unwrap(), Handle::parse_hex(h).unwrap()).unwrap();
+        assert_eq!(m.top(), 0.0);
+        assert_eq!(m.bottom(), if i < 4 { -144.0 } else { -96.0 });
+    }
+    s.execute("u", &json!({})).unwrap();
+    assert_eq!(model::members(s.doc().unwrap())[0].bottom(), -120.0);
+    s.execute("redo", &json!({})).unwrap();
+    let before = format!("{:?}", s.doc().unwrap());
+    assert!(s.execute("contractor.set", &json!({"handles":[hs[0],"FFFFFFFF"],"diameter":"12\""})).is_err());
+    assert_eq!(before, format!("{:?}", s.doc().unwrap()));
+    s.execute("contractor.set", &json!({"handle":hs[0],"shape":"post","width":"6\"","depth":"8\""})).unwrap();
+    assert!(matches!(
+        model::resolve(s.doc().unwrap(), Handle::parse_hex(&hs[0]).unwrap()).unwrap().record.shape,
+        Shape::Post { width: 6.0, depth: 8.0, .. }
+    ));
+}
+
+#[test]
+fn explicit_length_units_convert_to_the_drawing_unit() {
+    let mut s = session();
+    s.execute("setvar", &json!({"name":"INSUNITS","value":4})).unwrap();
+    let h = board(&mut s, json!({"start":[0,0],"end":[3000,0],"size":"custom","width":"1 1/2\"","depth":"9.25\"","bottom":"1.2'"}));
+    let m = model::resolve(s.doc().unwrap(), h).unwrap();
+    assert!((m.bottom() - 365.76).abs() < 1e-8);
+    assert!(matches!(m.record.shape,Shape::Board{width,depth,..} if (width-38.1).abs()<1e-8 && (depth-234.95).abs()<1e-8));
+    s.execute("contractor.set", &json!({"handle":h.hex(),"bottom":"25 cm","length":"4 m"})).unwrap();
+    let m = model::resolve(s.doc().unwrap(), h).unwrap();
+    assert_eq!(m.bottom(), 250.0);
+    assert_eq!(m.record.cut_length(), Some(4000.0));
+    for bad in ["NaN", "inf", "1e999'", "-2/0\"", "junk"] {
+        assert!(s.execute("contractor.set", &json!({"handle":h.hex(),"bottom":bad})).is_err());
+    }
+}
+
+#[test]
+fn choose_base_and_butt_joints_use_the_same_interactive_and_json_commands() {
+    use cadcraft_engine::Input;
+    let mut s = session();
+    let rim = board(&mut s, json!({"start":[0,0],"end":[0,144]}));
+    let joist = board(&mut s, json!({"start":[0,48],"end":[120,48]}));
+    assert_eq!(s.execute("contractor.collisions", &json!({})).unwrap()["overlaps"].as_array().unwrap().len(), 1);
+    s.start("contractor.join").unwrap();
+    s.input(Input::Pick(vec![rim])).unwrap();
+    s.cmdline("Start").unwrap();
+    let m = model::resolve(s.doc().unwrap(), joist).unwrap();
+    assert!((m.record.setbacks.start - 0.75).abs() < 1e-8);
+    assert!(m.axis().0.x.abs() < 1e-8);
+    assert!(s.execute("contractor.collisions", &json!({})).unwrap()["overlaps"].as_array().unwrap().is_empty());
+    s.execute("copy", &json!({"handles":[joist.hex()],"delta":[0,16]})).unwrap();
+    s.execute("contractor.repeat", &json!({"handle":joist.hex(),"spacing":"16\"","count":2})).unwrap();
+    assert!(model::members(s.doc().unwrap()).iter().filter(|m| m.record.version == 2).all(|m| (m.record.setbacks.start - 0.75).abs() < 1e-8));
+    s.execute("select", &json!({"handles":[joist.hex()]})).unwrap();
+    s.start("contractor.base").unwrap();
+    s.input(Input::Pick(vec![rim])).unwrap();
+    s.cmdline("Below").unwrap();
+    let m = model::resolve(s.doc().unwrap(), joist).unwrap();
+    assert_eq!(m.top(), 0.0);
+    assert_eq!(m.bottom(), -9.25);
+    s.execute("contractor.base", &json!({"handle":joist.hex(),"reference":rim.hex(),"side":"above"})).unwrap();
+    assert_eq!(model::resolve(s.doc().unwrap(), joist).unwrap().bottom(), 9.25);
+    s.execute("select", &json!({"handles":[]})).unwrap();
+    s.execute("contractor.tool", &json!({"kind":"pile","shape":"pile","depthBelowTop":"8'","top":0})).unwrap();
+    s.start("contractor.base").unwrap();
+    s.input(Input::Pick(vec![rim])).unwrap();
+    s.cmdline("Below").unwrap();
+    s.cmdline("contractor.post 144,144").unwrap();
+    let piles = model::members(s.doc().unwrap()).into_iter().filter(|m| matches!(m.record.shape, Shape::Pile { .. })).collect::<Vec<_>>();
+    assert_eq!(piles[0].top(), 0.0);
+    assert_eq!(piles[0].bottom(), -96.0);
+}
+
+#[test]
 fn stack_repeat_edit_copy_and_undo_share_one_model() {
     let mut s = session();
     let beam = board(&mut s, json!({"start":[0,0],"end":[0,144],"size":"2x12","role":"beam"}));

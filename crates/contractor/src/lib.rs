@@ -3,6 +3,7 @@
 #![forbid(unsafe_code)]
 
 mod annotations;
+pub mod joints;
 pub mod view3d;
 pub use annotations::export_drawing;
 
@@ -103,20 +104,62 @@ pub struct MemberRecord {
     pub role: String,
     pub label: String,
     pub shape: Shape,
+    #[serde(default, skip_serializing_if = "EndSetbacks::is_zero")]
+    pub setbacks: EndSetbacks,
+}
+
+/// Square end cuts measured inward from the engineering endpoints, in drawing units.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct EndSetbacks {
+    pub start: f64,
+    pub end: f64,
+}
+impl EndSetbacks {
+    fn is_zero(&self) -> bool {
+        self.start == 0.0 && self.end == 0.0
+    }
 }
 
 impl MemberRecord {
     pub fn wood(profile: &str, role: &str, shape: Shape) -> Self {
-        Self { version: 1, material: "wood".into(), profile: profile.into(), role: role.into(), label: String::new(), shape }
+        Self {
+            version: 1,
+            material: "wood".into(),
+            profile: profile.into(),
+            role: role.into(),
+            label: String::new(),
+            shape,
+            setbacks: EndSetbacks::default(),
+        }
     }
     pub fn validate(&self) -> Result<()> {
-        if self.version != 1 {
+        if !matches!(self.version, 1 | 2) {
             return Err(invalid("unsupported Contractor metadata version; kept as ordinary CAD geometry"));
         }
         if [&self.material, &self.profile, &self.role, &self.label].iter().any(|s| s.len() > 128 || s.chars().any(char::is_control)) {
             return Err(invalid("member names must be at most 128 bytes without control characters"));
         }
-        self.shape.validate()
+        self.shape.validate()?;
+        if [self.setbacks.start, self.setbacks.end].iter().any(|v| !v.is_finite() || *v < 0.0 || *v > LIMIT)
+            || (self.version == 1 && !self.setbacks.is_zero())
+        {
+            return Err(invalid("invalid member end setbacks"));
+        }
+        match self.shape {
+            Shape::Board { length, .. } if self.setbacks.start + self.setbacks.end >= length - 1e-8 => {
+                Err(invalid("setbacks must leave a positive physical board length"))
+            }
+            Shape::Post { .. } | Shape::Pile { .. } if !self.setbacks.is_zero() => Err(invalid("end setbacks apply only to lumber")),
+            _ => Ok(()),
+        }
+    }
+
+    pub fn cut_length(&self) -> Option<f64> {
+        match self.shape {
+            Shape::Board { length, .. } => Some(length - self.setbacks.start - self.setbacks.end),
+            _ => None,
+        }
     }
 }
 
@@ -202,7 +245,8 @@ pub fn set_representation(d: &mut Drawing, rep: Representation) {
     }
 }
 
-fn geometry(shape: &Shape) -> Vec<(&'static str, EntityKind)> {
+fn geometry(record: &MemberRecord) -> Vec<(&'static str, EntityKind)> {
+    let shape = &record.shape;
     let mut out = Vec::new();
     let poly = |points: Vec<Vec2>| {
         EntityKind::LwPolyline(LwPolyline {
@@ -214,7 +258,7 @@ fn geometry(shape: &Shape) -> Vec<(&'static str, EntityKind)> {
         })
     };
     let (x0, x1, y0, y1, h) = match *shape {
-        Shape::Board { length, width, depth } => (0.0, length, -width / 2.0, width / 2.0, depth),
+        Shape::Board { length, width, depth } => (record.setbacks.start, length - record.setbacks.end, -width / 2.0, width / 2.0, depth),
         Shape::Post { width, depth, height } => (-width / 2.0, width / 2.0, -depth / 2.0, depth / 2.0, height),
         Shape::Pile { diameter, height } => {
             let radius = diameter / 2.0;
@@ -274,7 +318,7 @@ fn geometry(shape: &Shape) -> Vec<(&'static str, EntityKind)> {
 
 fn definition(d: &mut Drawing, name: &str, r: &MemberRecord) -> Block {
     let mut block = Block::new(name);
-    for (layer, kind) in geometry(&r.shape) {
+    for (layer, kind) in geometry(r) {
         block.entities.push(Entity {
             handle: d.new_handle(),
             common: Common { layer: layer.into(), color: Color::ByBlock, ..Default::default() },
@@ -351,8 +395,7 @@ fn validate_pose(p: Vec3, angle: f64) -> Result<()> {
 }
 
 fn handle_budget(d: &Drawing, r: &MemberRecord) -> Result<()> {
-    let count =
-        geometry(&r.shape).len().checked_add(1).and_then(|n| u64::try_from(n).ok()).ok_or_else(|| invalid("member handle budget overflow"))?;
+    let count = geometry(r).len().checked_add(1).and_then(|n| u64::try_from(n).ok()).ok_or_else(|| invalid("member handle budget overflow"))?;
     if d.handseed == 0 || d.handseed.checked_add(count).is_none() {
         return Err(invalid("drawing handle space is exhausted"));
     }
@@ -396,7 +439,7 @@ impl Member {
         }
     }
     pub fn faces(&self) -> Vec<[Vec3; 4]> {
-        geometry(&self.record.shape)
+        geometry(&self.record)
             .into_iter()
             .filter_map(|(_, k)| if let EntityKind::Face3d(f) = k { Some(f.corners.map(|p| self.world(p))) } else { None })
             .collect()
@@ -417,7 +460,7 @@ pub fn resolve(d: &Drawing, h: Handle) -> Result<Member> {
         return Err(invalid("unsupported Contractor block transform"));
     }
     let b = d.block(&i.block).ok_or_else(|| invalid("member block is missing"))?;
-    let expected = geometry(&record.shape);
+    let expected = geometry(&record);
     if matches!(record.shape, Shape::Pile { .. }) && (i.scale.x.abs() - i.scale.y.abs()).abs() > 1e-8 {
         return Err(invalid("non-circular piling transform; kept as ordinary CAD geometry"));
     }
@@ -454,7 +497,9 @@ pub fn resolve(d: &Drawing, h: Handle) -> Result<Member> {
 }
 
 fn validate_geometry(m: &Member) -> Result<()> {
-    if m.faces().iter().flatten().any(|p| [p.x, p.y, p.z].iter().any(|x| !x.is_finite() || x.abs() > LIMIT)) {
+    let (a, b) = m.axis();
+    let axes = [a, b];
+    if m.faces().iter().flatten().chain(axes.iter()).any(|p| [p.x, p.y, p.z].iter().any(|x| !x.is_finite() || x.abs() > LIMIT)) {
         return Err(invalid("member geometry exceeds coordinate bounds"));
     }
     Ok(())
@@ -469,7 +514,7 @@ pub fn explode(d: &Drawing, h: Handle) -> Result<Vec<Entity>> {
     let m = resolve(d, h)?;
     let mut common = d.entity(h).ok_or_else(|| invalid("no such member"))?.common.clone();
     detach(&mut common);
-    geometry(&m.record.shape)
+    geometry(&m.record)
         .into_iter()
         .map(|(layer, mut kind)| {
             match &mut kind {
