@@ -30,6 +30,7 @@ People trust CADCraft with their drawings; a crash loses their work. **This outr
 - **Programmatic calls never open dialogs.** `engine.execute` runs the JSON form with defaults; only menu/toolbar invocation starts the interactive prompt sequence.
 - **Layering** is enforced by `cargo xtask layers`: L0 `geom`, `dxf` → L1 `color`, `doc` → L2 `fonts`, `render`, `constraints` → L3 `io` → L4 `engine` → L5 `ui-egui`, `mcp` → apps. Nothing below L5 depends on egui/eframe/winit/wgpu/rfd. **The UI crate is swappable.**
 - **The UI is thin**: panels read engine state and act through `app.run(id, params)` / `app.start(id)` / `app.cmdline(text)`. Colours come from `theme::Tokens`.
+- **Time goes through `chrono`** (workspace dependency). Never hand-roll UTC/calendar conversion (days-to-date algorithms, leap-year math); a crate owns only its output format string. The one exception is range extension: past the years chrono can represent, shift the date by whole 400-year Gregorian cycles (146,097 days, after which the calendar repeats), let chrono compute the month and day, and add the cycles back to the year (splitting seconds into hours, minutes and seconds is plain arithmetic).
 - **Rust only** (no handwritten JS/TS). **Never break wasm** (`cargo xtask wasm`).
 - **Quality gates** before every commit: `cargo xtask ci` (fmt, clippy -D warnings, tests, assets, layers, wasm). Commit after every feature arc that builds, and push to `main`.
 
@@ -48,6 +49,8 @@ People trust CADCraft with their drawings; a crash loses their work. **This outr
 ## Contractor fork
 
 The optional Contractor floor-framing extension is documented in `docs/contractor.md`. Read the nested agent notes before changing its model, engine adapters, or UI adapter. Keep extension behavior out of doc/render/io and keep the shared hooks small. Its specialized member viewer does not constitute a general-purpose 3D CAD kernel or improve unrelated native parity numbers.
+
+Optional desktop Discord Rich Presence is documented in `docs/discord-presence.md`; read its adapter notes before changing IPC. Keep drawing data out of presence. Upstream merge records and validation belong in `docs/upstream-updates.md`.
 
 ## Roadmap
 `ROADMAP.md` (committed) is the one-page summary: stage, parity numbers, estimates. It follows craftrules' `standards/progress-docs.md`: the assessment is `docs/target-app-parity.md`, the work list `docs/gaps.md` (pick work from its top rows), milestones `docs/roadmap.md`, deep checklists `docs/geometry-parity.md`, `docs/ui-parity.md`, `docs/file-format-parity.md`, `docs/hardware-parity.md`, `docs/localization-parity.md`. When work lands, update the affected rows and the docs' status lines and revision history. `cargo xtask parity` regenerates the menu-breadth checklist in `docs/parity-checklist.md`.

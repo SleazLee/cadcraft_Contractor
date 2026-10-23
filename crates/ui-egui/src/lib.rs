@@ -8,6 +8,7 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 #![forbid(unsafe_code)]
 
+pub mod aliasdlg;
 pub mod animation;
 pub mod autosave;
 pub mod bedit;
@@ -22,6 +23,7 @@ pub mod contractor;
 pub mod control;
 pub mod credits;
 pub mod dialogs;
+pub mod discord;
 pub mod docking;
 pub mod hatchdlg;
 mod mtext_editor;
@@ -193,6 +195,8 @@ pub struct Services {
 }
 
 pub struct CadApp {
+    /// Optional desktop Rich Presence preferences; the host owns IPC.
+    pub discord: discord::State,
     #[cfg(feature = "contractor")]
     pub contractor: contractor::State,
     pub system_languages: Vec<String>,
@@ -228,6 +232,8 @@ pub struct CadApp {
     shown_follows_system: bool,
     /// Whether egui was last told to animate (`None` until the first frame).
     shown_animations: Option<bool>,
+    /// The interface scale last handed to egui (`None` until the first frame).
+    shown_interface_scale: Option<f32>,
     pub frame_ms: f64,
     pub quit_requested: bool,
     /// The app may close although drawings have unsaved changes (they were dealt with, or the
@@ -243,6 +249,8 @@ pub struct CadApp {
     pub gpu_faults: std::sync::Arc<gpu::GpuFaults>,
     /// The notice shown after one (see [`autosave::gpu_notice`]).
     pub gpu_notice: Option<autosave::GpuNotice>,
+    /// The Command Aliases dialog while open ([`aliasdlg`]).
+    pub alias_dlg: Option<aliasdlg::AliasDlgState>,
     /// The Hatch and Gradient dialog while open or picking ([`hatchdlg`]).
     pub hatch_dlg: Option<hatchdlg::HatchDlgState>,
     /// The Edit Block Definition dialog ([`bedit`]).
@@ -252,6 +260,7 @@ pub struct CadApp {
 impl CadApp {
     pub fn new(session: Session, services: Services) -> Self {
         CadApp {
+            discord: discord::State::default(),
             #[cfg(feature = "contractor")]
             contractor: contractor::State::default(),
             system_languages: Vec::new(),
@@ -277,6 +286,7 @@ impl CadApp {
             shown_theme: None,
             shown_follows_system: false,
             shown_animations: None,
+            shown_interface_scale: None,
             frame_ms: 0.0,
             quit_requested: false,
             quit_confirmed: false,
@@ -285,6 +295,7 @@ impl CadApp {
             recovery: autosave::Recovery::default(),
             gpu_faults: std::sync::Arc::default(),
             gpu_notice: None,
+            alias_dlg: None,
             hatch_dlg: None,
             bedit: bedit::State::default(),
         }
@@ -383,6 +394,9 @@ impl CadApp {
         if self.spacemouse.settings != spacemouse::Settings::default() {
             prefs["spacemouse"] = json!(self.spacemouse.settings);
         }
+        if self.discord.settings != discord::Settings::default() {
+            prefs["discordPresence"] = json!(self.discord.settings);
+        }
         if !self.ui.recent_files.is_empty() {
             prefs["recentFiles"] = json!(self.ui.recent_files);
         }
@@ -392,6 +406,9 @@ impl CadApp {
     /// Restore preferences saved by [`Self::prefs_json`]; unknown or malformed values are ignored.
     pub fn load_prefs(&mut self, json: &str) {
         let Ok(v) = serde_json::from_str::<Value>(json) else { return };
+        if let Some(settings) = v.get("discordPresence") {
+            let _ = self.discord.load_settings(settings);
+        }
         if let Some(prefs) = v.get("spacemouse") {
             let _ = self.spacemouse.load_settings(prefs);
         }
@@ -571,6 +588,13 @@ impl CadApp {
         if !animate {
             animation::unsmooth_scroll(ctx);
         }
+        // Applied only when the saved scale changes, so egui's own keyboard zoom keeps working
+        // within a session (and is never saved).
+        let scale = self.options.interface_scale;
+        if self.shown_interface_scale != Some(scale) {
+            ctx.set_zoom_factor(scale);
+            self.shown_interface_scale = Some(scale);
+        }
         self.drain_control(ctx);
         self.finish_opening();
         self.opening.show(ctx);
@@ -639,6 +663,9 @@ impl CadApp {
             chrome::file_tabs(self, ui);
         }
         let has_doc = !self.session.docs.is_empty() && !self.ui.start_tab;
+        if has_doc && !self.ui.show_toolsets {
+            palettes::toolsets_strip(self, ui);
+        }
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(t.canvas)).show(ui, |ui| {
             if has_doc {
                 docking::show(self, ui);

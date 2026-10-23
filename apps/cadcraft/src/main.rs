@@ -16,6 +16,8 @@
 
 mod control_server;
 mod desktop_theme;
+#[cfg(feature = "discord-presence")]
+mod discord_presence;
 #[cfg(any(target_os = "windows", test))]
 mod graphics;
 mod logging;
@@ -29,6 +31,8 @@ use cadcraft_engine::Session;
 use cadcraft_ui_egui::{CadApp, Services, i18n};
 
 struct App {
+    #[cfg(feature = "discord-presence")]
+    discord_presence: discord_presence::Presence,
     cad: CadApp,
     spacemouse: spacemouse::SpaceMouse,
     /// The desktop's light/dark choice where winit reports none (Linux, the BSDs).
@@ -77,6 +81,8 @@ impl eframe::App for App {
         }
         self.cad.system_animations = self.system_animations.current();
         self.cad.logic(ctx);
+        #[cfg(feature = "discord-presence")]
+        self.discord_presence.poll(&mut self.cad);
         self.spacemouse.poll(&mut self.cad, ctx);
         self.persist_workspace(false);
         if std::mem::take(&mut self.cad.quit_requested) {
@@ -95,6 +101,8 @@ impl eframe::App for App {
     /// A normal exit: the workspace is saved, and this run's autosave files are not needed (a
     /// crash leaves them for recovery).
     fn on_exit(&mut self) {
+        #[cfg(feature = "discord-presence")]
+        self.discord_presence.shutdown();
         self.persist_workspace(true);
         self.cad.shutdown_autosave();
     }
@@ -363,7 +371,11 @@ fn main() -> eframe::Result {
             let desktop_theme = desktop_theme::DesktopTheme::start(move || ctx.request_repaint());
             let ctx = cc.egui_ctx.clone();
             let system_animations = system_animations::SystemAnimations::start(move || ctx.request_repaint());
+            #[cfg(feature = "discord-presence")]
+            let discord_presence = discord_presence::Presence::start(&mut app, cc.egui_ctx.clone());
             Ok(Box::new(App {
+                #[cfg(feature = "discord-presence")]
+                discord_presence,
                 desktop_theme,
                 system_animations,
                 cad: app,

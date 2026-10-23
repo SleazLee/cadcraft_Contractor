@@ -148,17 +148,27 @@ fn cmd_wasm() -> Result<(), String> {
     if failed == 0 { Ok(()) } else { Err(format!("{failed} crate(s) failed the wasm check")) }
 }
 
+fn cmd_fmt() -> Result<(), String> {
+    // cargo-fmt passes every source target to rustfmt in one Windows command line. Large
+    // checkouts exceed CreateProcess's 32K limit; package-sized batches keep identical checks.
+    if cfg!(windows) {
+        for package in layers::from_metadata(&metadata()?)? {
+            let mut c = cargo();
+            c.args(["fmt", "-p", &package.name, "--", "--check"]);
+            run(c, &format!("cargo fmt -p {} -- --check", package.name))?;
+        }
+        Ok(())
+    } else {
+        let mut c = cargo();
+        c.args(["fmt", "--all", "--", "--check"]);
+        run(c, "cargo fmt --all -- --check")
+    }
+}
+
 fn cmd_ci() -> Result<(), String> {
     type Step = (&'static str, Box<dyn Fn() -> Result<(), String>>);
     let steps: Vec<Step> = vec![
-        (
-            "fmt",
-            Box::new(|| {
-                let mut c = cargo();
-                c.args(["fmt", "--all", "--", "--check"]);
-                run(c, "cargo fmt --all -- --check")
-            }),
-        ),
+        ("fmt", Box::new(cmd_fmt)),
         (
             "clippy",
             Box::new(|| {

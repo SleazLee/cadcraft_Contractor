@@ -1,6 +1,6 @@
 # Contractor mode — floor framing
 
-**Status:** v1.1 implemented and validated. **Updated:** 2026-10-18.
+**Status:** v1.1 implemented and validated; upstream 0.11.0 integration tracked in [upstream-updates.md](upstream-updates.md). **Updated:** 2026-10-22.
 
 Contractor mode adds individual wood members to the existing drawing. Choose the **Contractor** Tool Sets tab. **Plan** shows physical footprints; **3D** shows actual member volumes; **Engineering** shows centroid axes and current elevation labels. Existing drafting, dimensions, layouts, and plot tools remain available. This is drawing geometry, not load analysis or code compliance checking.
 
@@ -87,6 +87,12 @@ Agent notes live beside the model crate and both adapter modules. Reusable learn
 
 ## Validation record
 
+- The 2026-10-22 upstream integration passed all six repository gates with 2,291 tests and all
+  native/browser feature combinations, plus eight feature-disabled workspace tests. The final
+  0.11.0 Windows desktop preserved all 31 sample members/elevations through native DWG reopening;
+  individual-depth editing, unaffected members and undo passed. All three views and Properties
+  were inspected, and the 1:48 PDF retained 432-point joist axes. See the [update record](upstream-updates.md).
+
 - Native storage tests exercise all three shapes and representations through two DXF/DWG cycles, then edit reopened members. Generated-name collision tests protect unrelated block definitions during creation and editing.
 - Command tests cover stack elevations, independent placement, on-center repetition, copy-on-edit, conversion preservation/atomicity, transforms, interactive input, hostile numbers and undo/redo.
 - Rendering tests check depth-order-independent CPU picking and GPU drawing, positive elevation appearing upward, bounded software rendering and shader validation; UI evidence is generated under ignored `temp/` when requested.
@@ -100,5 +106,6 @@ Agent notes live beside the model crate and both adapter modules. Reusable learn
 
 | Date | Change |
 |---|---|
+| 2026-10-22 | Upstream 0.11.0 integration retains Contractor model, commands, Properties and member metadata; optional desktop Discord presence is a separate adapter |
 | 2026-10-18 | Item-specific Properties, batch edits, physical unit entry, Above/Below base selection, version 2 square end setbacks and collision checks; future cut-optimization boundary |
 | 2026-10-17 | Initial Contractor floor-framing implementation, storage schema, agent boundaries and maintenance checklist |

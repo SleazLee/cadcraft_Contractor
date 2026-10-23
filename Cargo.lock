@@ -547,19 +547,23 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
 name = "cadcraft"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-engine",
  "cadcraft-io",
+ "cadcraft-mcp",
  "cadcraft-ui-egui",
+ "chrono",
  "eframe",
  "egui",
  "hidapi",
+ "interprocess",
  "log",
  "muda",
  "objc2-app-kit 0.3.2",
  "rfd",
  "serde_json",
+ "socket2",
  "sys-locale",
  "windows",
  "winit",
@@ -569,7 +573,7 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-cli"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-engine",
  "cadcraft-io",
@@ -580,14 +584,14 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-color"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "cadcraft-constraints"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-doc",
  "cadcraft-geom",
@@ -597,7 +601,7 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-contractor"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-color",
  "cadcraft-doc",
@@ -609,7 +613,7 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-doc"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-color",
  "cadcraft-geom",
@@ -620,14 +624,14 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-dwg"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "acadrust",
 ]
 
 [[package]]
 name = "cadcraft-dxf"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "encoding_rs",
  "log",
@@ -636,7 +640,7 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-engine"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-color",
  "cadcraft-constraints",
@@ -647,6 +651,8 @@ dependencies = [
  "cadcraft-geom",
  "cadcraft-io",
  "cadcraft-render",
+ "craft-docpath",
+ "libc",
  "log",
  "rstar",
  "serde",
@@ -656,7 +662,7 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-fonts"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-geom",
  "harfrust",
@@ -666,15 +672,16 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-geom"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "cadcraft-io"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
+ "acadrust",
  "cadcraft-color",
  "cadcraft-doc",
  "cadcraft-dwg",
@@ -692,18 +699,19 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-mcp"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-engine",
  "cadcraft-io",
  "cadcraft-render",
+ "getrandom 0.3.4",
  "log",
  "serde_json",
 ]
 
 [[package]]
 name = "cadcraft-render"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-color",
  "cadcraft-doc",
@@ -717,7 +725,7 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-ui-egui"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-color",
  "cadcraft-contractor",
@@ -726,6 +734,7 @@ dependencies = [
  "cadcraft-fonts",
  "cadcraft-geom",
  "cadcraft-render",
+ "chrono",
  "craft-ui",
  "egui",
  "egui-wgpu",
@@ -740,7 +749,7 @@ dependencies = [
 
 [[package]]
 name = "cadcraft-web"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
  "cadcraft-engine",
  "cadcraft-io",
@@ -835,6 +844,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0ced0551234e87afee12411d535648dd89d2e7f34c78b753395567aff3d447ff"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "chrono"
+version = "0.4.45"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -940,6 +958,11 @@ name = "core_detect"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f8f80099a98041a3d1622845c271458a2d73e688351bf3cb999266764b81d48"
+
+[[package]]
+name = "craft-docpath"
+version = "0.1.0"
+source = "git+https://github.com/storytold/craft-libs?rev=82a24b006eefa036b43c09a67fb9a3fbd17ffe63#82a24b006eefa036b43c09a67fb9a3fbd17ffe63"
 
 [[package]]
 name = "craft-ui"
@@ -1055,6 +1078,12 @@ checksum = "ab8ecd87370524b461f8557c119c405552c396ed91fc0a8eec68679eab26f94a"
 dependencies = [
  "libloading",
 ]
+
+[[package]]
+name = "doctest-file"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2db04e74f0a9a93103b50e90b96024c9b2bdca8bce6a632ec71b88736d3d359"
 
 [[package]]
 name = "document-features"
@@ -1921,6 +1950,19 @@ checksum = "cc4e190f5d26ca7051642629da2c52fc03bde85a03197c99408dcd291734c855"
 dependencies = [
  "equivalent",
  "hashbrown 0.17.1",
+]
+
+[[package]]
+name = "interprocess"
+version = "2.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7529951166d4dd4d2a6b9f0bb97919b810623f75eeb76e81ee9e6644886cae37"
+dependencies = [
+ "doctest-file",
+ "libc",
+ "recvmsg",
+ "widestring",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3162,6 +3204,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "recvmsg"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3edd4d5d42c92f0a659926464d4cce56b562761267ecf0f469d85b7de384175"
+
+[[package]]
 name = "redox_syscall"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3559,6 +3607,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd538fb6910ac1099850255cf94a94df6551fbdd602454387d0adb2d1ca6dead"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "socket2"
+version = "0.6.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
+dependencies = [
+ "libc",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4388,6 +4446,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "widestring"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72069c3113ab32ab29e5584db3c6ec55d416895e60715417b5b883a357c3e471"
+
+[[package]]
 name = "winapi-util"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4818,8 +4882,9 @@ checksum = "e450f9b2ed1dff33c94c12589a87338689467b9c4f5d8a5710bd09a847d2c8a7"
 
 [[package]]
 name = "xtask"
-version = "0.7.0"
+version = "0.11.0"
 dependencies = [
+ "chrono",
  "serde_json",
 ]
 
