@@ -45,9 +45,14 @@ Discord-only desktop builds also check successfully.
 All nine feature-disabled native workspace tests pass, and the browser application checks
 successfully for WASM with Contractor both enabled and disabled.
 
-Native FreeBSD runtime/build/package validation runs in the fork's
-[FreeBSD workflow](https://github.com/SleazLee/cadcraft_Contractor/actions/workflows/freebsd.yml)
-on the published merge, covering both architectures.
+On published code commit `7d3fafc5c9ce9e6e7214b3352011b3ff6442c071`, GitHub's
+[Linux quality gate](https://github.com/SleazLee/cadcraft_Contractor/actions/runs/40261311440)
+passes all seven steps. Both **FreeBSD 15** jobs pass in
+[run 40261311424](https://github.com/SleazLee/cadcraft_Contractor/actions/runs/40261311424):
+**x86_64 runs the native tests**, including the real Unix socket and generated-member protection
+regressions; **aarch64 cross-compiles the application and test binaries** on x86_64.
+Nix, packaging lint and SonarCloud also pass. FreeBSD package validation steps are enabled
+for release-branch runs.
 
 Local `plan/` files and `../../craftrules` remain unavailable; the shared instructions' public
 GitHub location again returned 404. Root and nested Contractor/Discord instructions were read.
