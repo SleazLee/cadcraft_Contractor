@@ -15,3 +15,7 @@ accepted. Preserve quiet reconnect, rejection reporting, privacy and opt-out per
 Required checks: fragmented/coalesced IPC, acknowledgements, ping/pong, disconnects, invalid and
 oversized frames, deadlines, blocked writes, bounded clearing/shutdown, preference round trips,
 invalid IDs without partial changes, native feature-disabled builds, WASM and cargo xtask ci.
+Unix connections transfer Socket -> OwnedFd -> UnixStream using safe owned APIs; socket2's
+direct UnixStream conversion needs its optional `all` feature. Keep the real Unix socket regression
+(idle WouldBlock, data, EOF and writes) alongside the Windows pipe regression. Check both
+FreeBSD x86_64 and aarch64; the fork's FreeBSD workflow tests main pushes as well as nightlies.

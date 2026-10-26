@@ -30,6 +30,9 @@ chrono = { workspace = true }
 [build-dependencies]
 winresource = "0.1"
 
+[dev-dependencies]
+tempfile = "3"
+
 [target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
 winit = { version = "0.30", default-features = false, features = ["x11"] }
 # View ▸ Theme ▸ System: the desktop's light/dark choice from the XDG desktop portal

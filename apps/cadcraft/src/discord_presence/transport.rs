@@ -67,16 +67,65 @@ pub(super) fn connect() -> io::Result<Stream> {
         roots.dedup();
         for root in roots {
             for index in 0..10 {
-                let socket = socket2::Socket::new(socket2::Domain::UNIX, socket2::Type::STREAM, None)?;
-                socket.set_nonblocking(true)?;
-                let Ok(address) = socket2::SockAddr::unix(root.join(format!("discord-ipc-{index}"))) else { continue };
-                if socket.connect(&address).is_ok() {
-                    return Ok(Stream(socket.into()));
+                if let Ok(stream) = connect_unix(&root.join(format!("discord-ipc-{index}"))) {
+                    return Ok(stream);
                 }
             }
         }
     }
     Err(io::ErrorKind::NotFound.into())
+}
+
+#[cfg(unix)]
+fn connect_unix(path: &std::path::Path) -> io::Result<Stream> {
+    let socket = socket2::Socket::new(socket2::Domain::UNIX, socket2::Type::STREAM, None)?;
+    socket.set_nonblocking(true)?;
+    socket.connect(&socket2::SockAddr::unix(path)?)?;
+    // socket2 gates its direct UnixStream conversion behind the optional `all` feature.
+    // Transfer ownership through the standard descriptor type instead, including on FreeBSD,
+    // preserving nonblocking mode without raw FDs or platform-dependent feature unification.
+    let descriptor: std::os::fd::OwnedFd = socket.into();
+    Ok(Stream(descriptor.into()))
+}
+
+#[cfg(all(test, unix))]
+mod unix_tests {
+    use super::*;
+    use std::os::unix::net::UnixListener;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn unix_socket_conversion_preserves_nonblocking_io_and_eof() {
+        // Own a unique temporary directory; never probe the user's Discord endpoints.
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("ipc");
+        let listener = UnixListener::bind(&path).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let mut client = connect_unix(&path).unwrap();
+        let (mut server, _) = listener.accept().unwrap();
+        server.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        let mut bytes = [0u8; 8];
+        assert_eq!(client.read(&mut bytes).unwrap_err().kind(), io::ErrorKind::WouldBlock);
+        server.write_all(b"ready").unwrap();
+        server.shutdown(std::net::Shutdown::Write).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        let mut received = Vec::new();
+        loop {
+            match client.read(&mut bytes) {
+                Ok(0) => break,
+                Ok(count) => received.extend_from_slice(&bytes[..count]),
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock && Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                result => panic!("unexpected Unix socket read: {result:?}"),
+            }
+            assert!(received.len() <= 5 && Instant::now() < deadline);
+        }
+        assert_eq!(received, b"ready");
+        client.write_all(b"ping").unwrap();
+        server.read_exact(&mut bytes[..4]).unwrap();
+        assert_eq!(&bytes[..4], b"ping");
+    }
 }
 
 #[cfg(all(test, windows))]

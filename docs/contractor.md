@@ -1,6 +1,6 @@
 # Contractor mode — floor framing
 
-**Status:** v1.1 implemented and validated; upstream 0.11.0 integration tracked in [upstream-updates.md](upstream-updates.md). **Updated:** 2026-10-22.
+**Status:** v1.1 implemented and validated; upstream 0.13.0 integration tracked in [upstream-updates.md](upstream-updates.md). **Updated:** 2026-10-25.
 
 Contractor mode adds individual wood members to the existing drawing. Choose the **Contractor** Tool Sets tab. **Plan** shows physical footprints; **3D** shows actual member volumes; **Engineering** shows centroid axes and current elevation labels. Existing drafting, dimensions, layouts, and plot tools remain available. This is drawing geometry, not load analysis or code compliance checking.
 
@@ -74,10 +74,10 @@ Shared integration points, intentionally kept small:
 |---|---|
 | Workspace manifests | Optional dependency and feature forwarding; layer-table entry |
 | Engine registry / DocState | Command registration and per-document tool preferences |
-| Modify / Properties / block editing | Reject unsupported resizing; protect generated definitions; explode recognized members with full world coordinates |
+| Modify / Properties / block editing | Reject unsupported resizing; protect generated definitions in BEDIT, REFEDIT and BLOCKREPLACE; explode recognized members with full world coordinates |
 | File adapter | Reuse atomic native storage / browser delivery and installed IO hooks |
 | CadApp / Tool Sets / Properties | Contractor state, renderer setup, third tab, specialized Properties body and friendly member type labels |
-| Desktop workspace persistence | Accept Contractor as a saved tab; use Drafting when reading that preference with the feature disabled |
+| Desktop workspace persistence | Accept Contractor as a saved tab; use Drafting when reading that preference with the feature disabled; use the host's docking validation adapter |
 | Display-time translator | Merge the Contractor reference-locale catalog; upstream entries win |
 | Canvas / rebuild / control | 3D dispatch, member picks for reference prompts and presentation-only engineering annotations |
 
@@ -86,6 +86,12 @@ After an upstream merge, inspect these points first. Run the Contractor storage/
 Agent notes live beside the model crate and both adapter modules. Reusable learning for shared crafting standards: put extension metadata on existing graphical entities where possible, verify the actual interchange bridge before designing storage, and keep native fallback geometry when an extension is unavailable. The referenced shared `craftrules` checkout and local `plan/` files were unavailable in this checkout; no shared repository was modified.
 
 ## Validation record
+
+- The 2026-10-25 upstream 0.13.0 integration passes the Contractor command/storage/UI tests,
+  including JSON/interactive BLOCKREPLACE protection. The final optimized desktop retained all
+  31 synthetic floor members/elevations through native DWG reopening, independent piling edits
+  and undo. Plan, Engineering, 3D and Properties were inspected; the exact 1:48 PDF retained
+  nineteen 432-point joist axes. Full gate results are in the [update record](upstream-updates.md).
 
 - The 2026-10-22 upstream integration passed all six repository gates with 2,291 tests and all
   native/browser feature combinations, plus eight feature-disabled workspace tests. The final
@@ -106,6 +112,7 @@ Agent notes live beside the model crate and both adapter modules. Reusable learn
 
 | Date | Change |
 |---|---|
+| 2026-10-25 | Upstream 0.13.0 integration preserves Contractor metadata and editing; workspace validation follows the upstream docking adapter |
 | 2026-10-22 | Upstream 0.11.0 integration retains Contractor model, commands, Properties and member metadata; optional desktop Discord presence is a separate adapter |
 | 2026-10-18 | Item-specific Properties, batch edits, physical unit entry, Above/Below base selection, version 2 square end setbacks and collision checks; future cut-optimization boundary |
 | 2026-10-17 | Initial Contractor floor-framing implementation, storage schema, agent boundaries and maintenance checklist |

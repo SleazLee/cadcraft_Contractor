@@ -40,6 +40,9 @@ dialog. IDs must be decimal strings, 17–20 digits, within `u64`. Secret fields
   `--no-default-features` for neither extension. CLI and browser builds have no Discord IPC.
 - Windows uses safe `interprocess` APIs (0BSD OR Apache-2.0); Unix uses safe `socket2` APIs
   (MIT OR Apache-2.0) and standard Unix streams. No proprietary SDK or unsafe code is added.
+- Unix sockets transfer through the standard owned file descriptor type, which also works on
+  FreeBSD without socket2's platform-specific conversion features. A real local socket test
+  checks nonblocking idle reads, received data, EOF and writes; it never contacts Discord.
 - One bounded worker owns nonblocking local IPC, with 64 KiB frames, a four-frame output queue,
   bounded work per tick, five-second reply deadlines and 30-second ping/pong heartbeats. Settings
   changes and shutdown wake it immediately. A 200 ms grace period bounds clearing on disconnect;

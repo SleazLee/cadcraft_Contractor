@@ -15,6 +15,32 @@ fn board(s: &mut Session, p: Value) -> Handle {
 }
 
 #[test]
+fn blockreplace_preserves_generated_member_geometry_and_metadata() {
+    let mut s = session();
+    let source = board(&mut s, json!({"start":[0,0],"end":[120,0],"size":"2x10"}));
+    let target = board(&mut s, json!({"start":[0,24],"end":[120,24],"size":"2x12"}));
+    let block_name = |h| match &s.doc().unwrap().entity(h).unwrap().kind {
+        EntityKind::Insert(insert) => insert.block.clone(),
+        _ => panic!("member must be a block reference"),
+    };
+    let (old, new) = (block_name(source), block_name(target));
+    let before = s.doc().unwrap().clone();
+    let error = s.execute("blockreplace", &json!({"block":old,"with":new,"purge":true})).unwrap_err();
+    assert!(error.to_string().contains("Contractor properties"));
+    assert_eq!(&before, s.doc().unwrap());
+    s.start("blockreplace").unwrap();
+    s.log.clear();
+    s.cmdline(&old).unwrap();
+    assert!(s.log.iter().any(|line| line.contains("Contractor properties")));
+    assert!(s.prompt_text().contains("block to replace"));
+    assert_eq!(&before, s.doc().unwrap());
+    s.input(cadcraft_engine::Input::Cancel).unwrap();
+    assert_eq!(model::members(s.doc().unwrap()).len(), 2);
+    assert!(model::resolve(s.doc().unwrap(), source).is_ok());
+    assert!(model::resolve(s.doc().unwrap(), target).is_ok());
+}
+
+#[test]
 fn selected_pilings_have_independent_depths_and_atomic_batch_properties() {
     let mut s = session();
     let mut hs = Vec::new();

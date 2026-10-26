@@ -2,9 +2,12 @@
 # (GitHub has no FreeBSD runners). GPU tests skip themselves when the VM has no adapter.
 name: FreeBSD
 
+# This fork also tests pushes to main so desktop adapter regressions are caught immediately.
+# The VM build is slow, so it does not run on every pull request.
+# PRs that change the FreeBSD workflow or packaging itself still run it.
 on:
   push:
-    branches: [release]
+    branches: [main, release]
   pull_request:
     paths:
       - .github/workflows/freebsd.yml

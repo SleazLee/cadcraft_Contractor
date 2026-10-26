@@ -1,5 +1,57 @@
 # Contractor fork upstream updates
 
+## 2026-10-25 — CADCraft 0.13.0 and FreeBSD Discord transport
+
+Integrated the upstream `v0.13.0` release,
+[`1fcf654ea8414ea2ef052ca2b3b77411f2026f78`](https://github.com/storytold/cadcraft/commit/1fcf654ea8414ea2ef052ca2b3b77411f2026f78),
+141 commits after the fork's 0.11.0 base. This brings upstream's drawing, dimension,
+comparison/export, clipboard, file-format, shared UI and dependency updates. Contractor's
+model, metadata versions, independent member editing and representation layers are retained.
+
+The shared integration adjustment is workspace snapshot validation: use upstream's new
+`docking::validate` adapter while still accepting the optional Contractor tab. Keep upstream's
+`getrandom` 0.4 update and the fork's explicit feature forwarding. The new upstream BLOCKREPLACE
+command also uses the existing protected-block predicate, so neither JSON nor interactive calls
+can detach member metadata from generated geometry. A regression verifies both paths leave the
+entire drawing unchanged. Merge progress histories
+without attributing Contractor's specialized viewer to general CAD kernel parity.
+
+The three failed nightly FreeBSD runs (39926390990, 40077356397, 40177149893) all stop at the
+Discord transport's `Socket` to `UnixStream` conversion. `socket2` does not supply that direct
+conversion on FreeBSD with its default features disabled. Transfer the socket through the
+standard `OwnedFd` type instead; this is safe, owns the descriptor once, and retains its
+nonblocking setting. A Unix regression exercises the actual connection helper using an
+isolated temporary socket, checking idle `WouldBlock`, delivery, EOF and bidirectional IO.
+Existing Windows pipe behavior is preserved. The FreeBSD workflow now also runs on main pushes
+so a desktop adapter regression need not wait for the nightly run.
+
+The exact production transport and its test compile and pass warning-free Clippy checks in an
+isolated transport-only harness for both `x86_64-unknown-freebsd` and `aarch64-unknown-freebsd`,
+using the locked socket2 version. The native test suite passes all 2,505 tests, including the
+new JSON/interactive block-replacement regression and Contractor's repeated DXF/DWG cycles.
+
+The optimized desktop reports `cadcraft 0.13.0 (contractor-v1.3)`. Its actual Discord client
+acknowledged activity, opt-out and reconnection. The synthetic 31-member floor retained every
+member/elevation through native DWG save/reopen; individual piling-depth edits left other members
+unchanged and undo restored the edit. Plan, Engineering, 3D, piling Properties and the Discord
+settings window were inspected. The Engineering PDF retained 19 joist axes at 432 points for
+288 drawing inches at 1:48, on ANSI D landscape (2448 × 1584 points).
+
+`cargo xtask ci` passes all seven gates: formatting, warning-free native Clippy, tests,
+translation reporting, assets, dependency layers and all 12 browser/WASM crate checks. The
+existing three WASM worker-helper dead-code warnings are unchanged. Native desktop, CLI, web,
+engine, UI and MCP checks pass with default features disabled; Contractor-only and
+Discord-only desktop builds also check successfully.
+All nine feature-disabled native workspace tests pass, and the browser application checks
+successfully for WASM with Contractor both enabled and disabled.
+
+Native FreeBSD runtime/build/package validation runs in the fork's
+[FreeBSD workflow](https://github.com/SleazLee/cadcraft_Contractor/actions/workflows/freebsd.yml)
+on the published merge, covering both architectures.
+
+Local `plan/` files and `../../craftrules` remain unavailable; the shared instructions' public
+GitHub location again returned 404. Root and nested Contractor/Discord instructions were read.
+
 ## 2026-10-22 — CADCraft 0.11.0
 
 Integrated `storytold/cadcraft` main through
