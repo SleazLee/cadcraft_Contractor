@@ -2,7 +2,7 @@
 
 **Stage: pre-alpha** · next: alpha, ~2 points (38% → 40% ready for real work) and ~125–190 Opus 5.5 hours away (the four failing core workflows of the [alpha gate](docs/roadmap.md#alpha-gate))
 
-> **Last reviewed:** 2026-10-25 · **Last updated:** 2026-10-25 · **Change:** minor (upstream 0.13.0 integration; Contractor scope and native parity estimates unchanged) · **Target:** Autodesk AutoCAD 2027
+> **Last reviewed:** 2026-10-28 · **Last updated:** 2026-10-28 · **Change:** minor (Contractor v1.3.1 drawing crash fix; native parity estimates unchanged) · **Target:** Autodesk AutoCAD 2027
 
 CADCraft targets full parity with AutoCAD (2D drafting first, then annotation, layouts and
 plotting, DWG, parametrics and 3D), plus what AutoCAD doesn't have: agent control over MCP, a
@@ -138,6 +138,7 @@ Ranked; detail and the full beta checklist in [docs/roadmap.md](docs/roadmap.md)
 
 | Date | Change | Summary |
 |---|---|---|
+| 2026-10-28 | minor | Fixed the v1.3 drawing/deleting crash by restoring the stable spatial-index dependency; added overlapping-line and edit/undo regressions. See [update record](docs/upstream-updates.md); parity estimates unchanged |
 | 2026-10-25 | minor | Merged upstream 0.13.0; fixed optional Discord socket portability on FreeBSD; Contractor scope and native parity estimates unchanged. See [update record](docs/upstream-updates.md) |
 | 2026-10-21 | trivial | Progress log: proxy objects keep their class through a save (#1812) |
 | 2026-10-22 | minor | Merged upstream through 01bbdb2 (0.11.0), preserving Contractor; optional desktop Discord presence excludes drawing contents. See [update record](docs/upstream-updates.md); native parity estimates unchanged |

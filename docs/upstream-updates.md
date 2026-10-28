@@ -1,5 +1,41 @@
 # Contractor fork upstream updates
 
+## 2026-10-28 — Contractor v1.3.1 drawing stability
+
+Contractor v1.3 could exit while drawing or deleting in an existing drawing. The captured
+stack trace identifies `rstar` 0.13's incremental spatial-index insertion during cursor
+snapping. This runs during canvas rendering, outside the engine command panic guard.
+Overlapping, collinear line bounds can leave the bulk-loaded index with incompatible node
+heights after repeated entity-chunk replacement and insertion. The earlier command and
+synthetic floor checks did not cover that shape of index update.
+
+Keep CADCraft 0.13.0 and pin the engine's spatial dependency to `rstar =0.12.2`, the version
+used in Contractor v1.2. The only API adjustment borrows the query envelope. This retains
+incremental indexing, Contractor metadata and Discord's FreeBSD socket fix. Before upgrading
+this dependency again, run `crates/engine/tests/spatial_edit_regression.rs`: its synthetic
+overlapping-line regression fails with the same panic on 0.13 and passes on 0.12.2. A second
+test compares cached and freshly built indexes through drawing, erasing, undo and redo.
+No private drawing or project-derived fixture is committed.
+
+The optimized Windows desktop (`cadcraft 0.13.0 (contractor-v1.3.1)`) passes the exact
+interactive drawing/deleting sequence that exited v1.3 on a separate copy of the reported
+DWG. Deleting eight existing lines with the Delete key, undo/redo and switching through
+Plan, Engineering and 3D also pass. Both the original file and its test copy retain their
+original hashes. Empty and dense synthetic drawings pass the same creation/deletion checks.
+
+The synthetic 31-member floor passes individual piling-depth edits without changing other
+members, undo, and native DWG save/reopen with all handles/elevations retained. Plan,
+Engineering, 3D and item Properties were inspected; Engineering PDF export succeeds. The
+real Discord desktop client acknowledges connection, opt-out and reconnection.
+
+`cargo xtask ci` passes all seven gates: formatting, warning-free native Clippy, tests,
+translation reporting, assets, dependency layers and all 12 browser/WASM crate checks.
+All 2,507 native tests pass, including the two new spatial regressions and Contractor's
+repeated DXF/native DWG round trips. Native desktop/CLI/web/engine/UI/MCP checks pass with
+default features disabled; Contractor-only and Discord-only desktop checks pass too.
+All nine feature-disabled workspace tests pass, and browser WASM checks pass with Contractor
+enabled and disabled. The existing three WASM worker-helper dead-code warnings are unchanged.
+
 ## 2026-10-25 — CADCraft 0.13.0 and FreeBSD Discord transport
 
 Integrated the upstream `v0.13.0` release,
@@ -117,7 +153,8 @@ profiles are unchanged.
    contractor.md and discord-presence.md against their upstream versions.
 3. Run Contractor storage/command/UI tests, including native DWG round trips, plus Discord's
    synthetic protocol/preference tests. Run `cargo xtask ci`, native feature-disabled checks,
-   and browser WASM checks with Contractor enabled and disabled.
+   and browser WASM checks with Contractor enabled and disabled. Preserve the exact `rstar`
+   pin until the overlapping-line spatial-index regression passes on its proposed replacement.
 4. Inspect Plan, Engineering, 3D, item Properties and Discord settings. Check native activity
    acknowledgement, opt-out, normal shutdown, and DWG save/reopen/edit.
 5. Record validation, commit and push the merge preserving both parent histories. Build and
